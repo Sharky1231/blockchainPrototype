@@ -1,0 +1,44 @@
+# Emacs backup files
+*~
+*#
+.#*
+# Vim file artifacts
+.*.sw*
+# installed platform-specific binaries
+bin
+.DS_Store
+.project
+
+chaincode-docker-devmode/myc.block
+chaincode-docker-devmode/chaincode/sacc/sacc
+chaincode-docker-devmode/chaincode/chaincode_example02/chaincode_example02
+
+# fabric sdk node modules
+fabcar/node_modules/
+fabcar/package-lock.json
+
+# balance transfer sample
+balance-transfer/.DS_Store
+balance-transfer/node_modules/*
+balance-transfer/package-lock.json
+
+blockchainDemo.iml
+
+chaincode/chaincode_example02/
+chaincode/hyperledger/
+fabcar/commands.txt
+fabcar/enrollAdmin.js
+fabcar/invoke.js
+fabcar/npm-debug.log
+fabcar/query.js
+fabcar/registerUser.js
+first-network/docker-compose-e2e.yaml
+npm-debug.log
+/.idea/
+/fabric-ca
+/first-network
+scripts
+fabcar/web/hfc-key-store
+chaincode/chaincode_example02
+basic-network
+

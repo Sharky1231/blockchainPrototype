@@ -1,0 +1,36 @@
+{
+  "name": "demo",
+  "version": "1.0.0",
+  "description": "Blockchain demo",
+  "main": "fabcar.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon ./server.js"
+
+  },
+  "dependencies": {
+    "angular": "1.6.6",
+    "bootstrap": "3.3.7",
+    "express": "^4.16.2",
+    "fabric-ca-client": "1.1.0-preview",
+    "fabric-client": "1.1.0-preview",
+    "grpc": "1.3.9",
+    "jquery": "3.2.1",
+    "requirejs": "2.3.5",
+    "font-awesome": "4.7.0",
+    "angularjs-scroll-glue": "2.2.0",
+    "q": "1.5.1"
+  },
+  "author": "Anthony O'Dowd",
+  "license": "Apache-2.0",
+  "keywords": [
+    "Hyperledger",
+    "Fabric",
+    "Car",
+    "Sample",
+    "Application"
+  ],
+  "devDependencies": {
+    "nodemon": "^1.12.1"
+  }
+}
