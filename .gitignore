@@ -37,7 +37,7 @@ npm-debug.log
 /.idea/
 /fabric-ca
 /first-network
-scripts
+/scripts
 fabcar/web/hfc-key-store
 chaincode/chaincode_example02
 basic-network
