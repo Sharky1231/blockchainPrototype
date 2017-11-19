@@ -8,8 +8,11 @@ module.exports = function(app) {
     app.route('/enrollAdmin')
         .get(ctrl.enrollAdmin);
 
-    app.route('/enrollUser/:userId')
+    app.route('/enrollUser/:userId/:hashedPass')
         .get(ctrl.enrollUser);
+
+    app.route('/login/:userId/:hashedPass')
+        .get(ctrl.loginUser);
 
     app.route('/query/:userId/:functionName/:parameters')
         .get(ctrl.queryMethod);

@@ -41,3 +41,13 @@
 .glyphicon {
     top: 0px;
 }
+
+#navigation {
+    margin-bottom: 20px;
+    margin-top: 20px;
+}
+
+.buttonsRight {
+    float: right;
+    margin-top: 10px;
+}

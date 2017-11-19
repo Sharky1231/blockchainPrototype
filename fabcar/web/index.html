@@ -16,82 +16,129 @@
 </head>
 <body ng-app="blockchainDemo">
 <div class="container">
-    <div class="page-header">
+    <div>
         <img id="logo" src="../images/logo.png"/>
         <h3>Blockchain demo</h3>
     </div>
 
+
     <div ng-controller="mainCtrl">
+        <div id="navigation">
+            <ul class="nav nav-tabs">
+                <li role="presentation" ng-class="{'active': state=='admin'}" ng-click="state = 'admin'"><a href="#">Administrator</a></li>
+                <li role="presentation" ng-class="{'active': state=='user'}" ng-click="state = 'user'"><a href="#">User</a></li>
+            </ul>
+        </div>
 
-        <div class="row">
+        <div ng-if="state == 'admin'">
+            <div class="row">
 
-            <div class="col-sm-3">
-                <div class="input-group">
-                    <span class="input-group-addon glyphicon glyphicon-plus"></span>
-                    <button ng-class="{'disabled': loading}" ng-click="registerAdmin()" class="btn btn-default">Enroll
-                        Admin
-                    </button>
-                </div>
-            </div>
-
-            <div class="col-sm-4">
-                <div class="input-group">
-                    <span class="input-group-addon glyphicon glyphicon-user"></span>
-                    <input type="input" class="form-control" ng-model="userName" placeholder="Username"/>
-                    <span class="input-group-btn">
-                        <button ng-class="{'disabled': loading || userName == ''}"
-                                ng-click="userName != '' && registerUser()"
-                                class="btn btn-default">Register user</button>
-                    </span>
-                </div>
-            </div>
-
-            <div class="col-sm-4">
-                <div class="input-group">
-                    <span class="input-group-addon glyphicon glyphicon-user"></span>
-                    <input type="input" class="form-control" ng-model="userName" placeholder="Username"/>
-                </div>
-                <div class="input-group">
-                    <span class="input-group-addon glyphicon glyphicon-search"></span>
-                    <select class="form-control" ng-model="selectedFunction">
-                        <option ng-repeat="availFunction in availableFunctions" value="{{availFunction}}">{{availFunction}}</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <span class="input-group-addon glyphicon glyphicon-asterisk"></span>
-                    <input type="input" class="form-control" ng-model="parameters" placeholder="(Optional) parameters"/>
+                <!--Enroll admin-->
+                <div class="col-sm-3">
+                    <div class="input-group">
+                        <span class="input-group-addon glyphicon glyphicon-plus"></span>
+                        <button ng-class="{'disabled': loading}" ng-click="registerAdmin()" class="btn btn-default">Enroll
+                            Admin
+                        </button>
+                    </div>
                 </div>
 
-                <div class="input-group">
-                    <span class="input-group-addon glyphicon glyphicon-arrow-right"></span>
-                    <div class="form-group">
-                        <select class="form-control" ng-model="functionType">
-                            <option ng-repeat="type in functionTypes" value="{{type}}">{{type}}</option>
+                <div class="col-sm-4">
+                    <div class="input-group">
+                        <span class="input-group-addon glyphicon glyphicon-user"></span>
+                        <input type="input" class="form-control" ng-model="userName" placeholder="Username"/>
+                        <span class="input-group-btn">
+                        </span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon glyphicon glyphicon-user"></span>
+                        <input type="password" class="form-control" ng-model="password" placeholder="Password"/>
+                        <span class="input-group-btn">
+                            <button ng-click="registerUser()"
+                                    class="btn btn-default">Register user</button>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="col-sm-4">
+                    <div class="input-group">
+                        <span class="input-group-addon glyphicon glyphicon-user"></span>
+                        <input type="input" class="form-control" ng-model="userName" placeholder="Username"/>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon glyphicon glyphicon-search"></span>
+                        <select class="form-control" ng-model="selectedFunction">
+                            <option ng-repeat="availFunction in availableFunctions" value="{{availFunction}}">{{availFunction}}</option>
                         </select>
                     </div>
-                    <span class="input-group-btn">
-                        <button ng-class="{'disabled': loading || userName == ''}"
-                                ng-click="userName != '' && executeFunction()"
-                                class="btn btn-default">Execute
-                        </button>
-                    </span>
-                </div>
+                    <div class="input-group">
+                        <span class="input-group-addon glyphicon glyphicon-asterisk"></span>
+                        <input type="input" class="form-control" ng-model="parameters" placeholder="(Optional) parameters"/>
+                    </div>
 
+                    <div class="input-group">
+                        <span class="input-group-addon glyphicon glyphicon-arrow-right"></span>
+                        <div class="form-group">
+                            <select class="form-control" ng-model="functionType">
+                                <option ng-repeat="type in functionTypes" value="{{type}}">{{type}}</option>
+                            </select>
+                        </div>
+                        <span class="input-group-btn">
+                            <button ng-click="executeFunction()"
+                                    class="btn btn-default">Execute
+                            </button>
+                        </span>
+                    </div>
+
+                </div>
+            </div>
+            <hr/>
+            <div class="panel-group">
+                <div class="panel-heading">
+                    <div class="row">
+                        <div class="col-sm-11">Log</div>
+                        <div class="col-sm-1"><button class="btn btn-xs btn-default" ng-click="resetLog()">Reset log</button></div>
+                    </div>
+                </div>
+                <div class="panel panel-default">
+                    <div ng-class="{'alert alert-danger': msg.indexOf('error') >= 0 || msg.indexOf('Failed') >= 0 || msg.indexOf('Error') >= 0}"
+                         ng-repeat="msg in logMessages track by $index">
+                        {{ msg }}
+                    </div>
+                </div>
             </div>
         </div>
-        <hr/>
 
-        <div class="panel-group">
-            <div class="panel-heading">
-                <div class="row">
-                    <div class="col-sm-11">Log</div>
-                    <div class="col-sm-1"><button class="btn btn-xs btn-default" ng-click="resetLog()">Reset log</button></div>
+        <div ng-if="state == 'user'">
+            <div ng-if="!loggedIn" class="col-sm-4 col-sm-offset-4">
+                <div ng-if="userError" class="alert alert-danger" role="alert">
+                    <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+                    <span class="sr-only">Error:</span>
+                    {{ userError }}
+                </div>
+
+                <div class="input-group">
+                    <span class="input-group-addon glyphicon glyphicon-user"></span>
+                    <input type="input" class="form-control" ng-model="userName" placeholder="Username"/>
+                </div>
+                <div class="input-group">
+                    <span class="input-group-addon glyphicon glyphicon-lock"></span>
+                    <input type="password" class="form-control" ng-model="password" placeholder="Password"/>
+                </div>
+                <div class="buttonsRight">
+                    <button ng-click="registerUser()"
+                            class="btn btn-default">Register</button>
+                    <button ng-click="logIn(userName, password)"
+                            class="btn btn-default">Login</button>
                 </div>
             </div>
-            <div class="panel panel-default">
-                <div ng-class="{'alert alert-danger': msg.indexOf('error') >= 0 || msg.indexOf('Failed') >= 0}"
-                     ng-repeat="msg in logMessages track by $index">
-                    {{ msg }}
+
+            <div ng-if="loggedIn">
+                <button ng-click="logout()" style="float: right;" class="btn btn-default">Logout</button>
+                <h3><span class="glyphicon glyphicon-user"></span> {{userName}}</h3>
+
+                <div class="row">
+
                 </div>
             </div>
         </div>

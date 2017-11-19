@@ -43,11 +43,8 @@ let Chaincode = class {
         let permissions = [];
         permissions.push({
             actor: 'doctor1',
+            password: 'hash123',
             subject: ['p1', 'p2'],
-        });
-        permissions.push({
-            actor: 'doctor2',
-            subject: ['p3'],
         });
 
         for (let i = 0; i < permissions.length; i++) {
@@ -82,12 +79,37 @@ let Chaincode = class {
         return permissionInBytes;
     }
 
+    async verifyUser(stub, args) {
+        if (args.length != 2) {
+            throw new Error('Incorrect number of arguments. Expecting permission ID and hashed password');
+        }
+
+        let permissionId = args[0];
+        let hashedPass = args[1];
+
+        let permissionInBytes = await stub.getState(permissionId); //get the car from chaincode state
+        // if (!permissionInBytes || permissionInBytes.toString().length <= 0) {
+        //     throw new Error(permissionId + ' does not exist: ');
+        // }
+
+        var temp = JSON.parse(permissionInBytes.toString());
+
+        // probably return only bytes??
+        if(temp.password === hashedPass) {
+            return permissionInBytes;
+        }
+
+        else {
+            throw new Error('Incorrect log in. (*Password does not match)');
+        }
+    }
+
     async queryAllPermissions(stub, args) {
 
-        let startKey = 'PERMISSION0';
-        let endKey = 'PERMISSION999';
+        // let startKey = 'PERMISSION0';
+        // let endKey = 'PERMISSION999';
 
-        let iterator = await stub.getStateByRange(startKey, endKey);
+        let iterator = await stub.getStateByRange('', '');
 
         let allResults = [];
         while (true) {
@@ -123,18 +145,20 @@ let Chaincode = class {
 
         let subjects = [];
 
-        for(let i = 2; i < args.length; i++){
+        for(let i = 3; i < args.length; i++){
             subjects.push(args[i]);
         }
 
         let permission = {
             actor: args[1],
+            password: args[2],
             subject: subjects,
         };
 
         await stub.putState(args[0], Buffer.from(JSON.stringify(permission)));
         console.info('============= END : Create Permission ===========');
     }
+
 
     async transferPermission(stub, args) {
         console.info('============= START : changeCarowner ===========');

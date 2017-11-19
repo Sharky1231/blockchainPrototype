@@ -86,15 +86,13 @@ exports.enrollUser = function (req, res) {
         initResponse();
 
         let userName = req.params.userId;
+        let password = req.params.hashedPass;
+        let publicKeyHashed = '';
 
         fabric_client = new Fabric_Client();
         fabric_ca_client = null;
         let admin_user = null;
         let member_user = null;
-        let userSecret = '';
-        let privateKey = '';
-        let cert = '';
-
 
         console.log("Trying register: " + userName);
         console.log('Store path:' + store_path);
@@ -117,14 +115,11 @@ exports.enrollUser = function (req, res) {
             // next we need to enroll the user with CA server
             if (secret !== undefined) {
                 console.log('Successfully registered: ' + userName + ' - secret:' + secret);
-                userSecret = secret;
             }
 
             return fabric_ca_client.enroll({enrollmentID: userName, enrollmentSecret: secret});
         }).then((enrollment) => {
             response.messages.push('Successfully enrolled member user: ' + userName);
-            privateKey = enrollment.key.getPublicKey();
-            cert = enrollment.certificate;
             return fabric_client.createUser(
                 {
                     username: userName,
@@ -133,18 +128,13 @@ exports.enrollUser = function (req, res) {
                 });
         }).then((user) => {
             member_user = user;
-
+            let publicKey = user._identity._publicKey._key.pubKeyHex;
+            publicKeyHashed = user.getCryptoSuite().hash(publicKey, 'SHA2');
             return fabric_client.setUserContext(member_user);
         }).then(() => {
-            response.messages.push(userName + ': was successfully registered and enrolled.');
-            response.messages.push("Secret: "+userSecret);
-            response.messages.push("Private key: "+privateKey);
-            response.messages.push("Cert: "+cert);
 
-            console.log('gonna set parametres');
-            req.params.userId = userName;
-            req.params.functionName = 'createRecord';
-            req.params.parameters = 'tomas';
+            // response.messages.push(fabric_client.getClientConfig());
+            response.messages.push(userName + ': was successfully registered and enrolled.');
 
             // exports.invoke(req, res);
         }).catch((err) => {
@@ -155,7 +145,40 @@ exports.enrollUser = function (req, res) {
             }
             resolve(res.json(response));
         }).then(() => {
-            console.log('gonna send back');
+            // register user in the ledger and create default permission with empty subjects
+            req.params.userId = userName;
+            req.params.password = password;
+            req.params.functionName = 'createRecord';
+            req.params.parameters = publicKeyHashed + ',' + userName + ',' +password;
+            req.params.createNewFabricClient = false;
+            return exports.invoke(req, res);
+        }).then(() => {
+            resolve(res.json(response));
+        })
+    });
+};
+
+exports.loginUser = function (req, res) {
+    return new Promise((resolve, reject) => {
+        initResponse();
+        getUserFromPersistence(false, req.params.userId, false).then((user) => {
+            if(user === null) {
+                throw new Error('User not found');
+            }
+
+            let publicKey = user._identity._publicKey._key.pubKeyHex;
+            let publicKeyHashed = user.getCryptoSuite().hash(publicKey, 'SHA2');
+
+            req.params.functionName = 'verifyUser';
+            req.params.parameters = publicKeyHashed +','+req.params.hashedPass;
+            req.params.createNewFabricClient = false;
+            return exports.queryMethod(req, res)
+        }).then((res) => {
+            console.log(res);
+            resolve(res.json(response));
+        }).catch((err) => {
+            console.log(err.message);
+            response.err.push(err.message);
             resolve(res.json(response));
         });
     });
@@ -200,7 +223,7 @@ exports.queryMethod = function (req, res) {
             if (query_responses && query_responses.length == 1) {
                 if (query_responses[0] instanceof Error) {
                     console.log("error from query = ", query_responses.toString());
-                    response.err.push("error from query = ", query_responses.toString());
+                    response.err.push("Failed with ", query_responses[0].message);
                 } else {
                     console.log("Response is ", query_responses[0].toString());
                     response.data.push(query_responses[0].toString());
@@ -218,7 +241,6 @@ exports.queryMethod = function (req, res) {
 
 exports.invoke = function (req, res) {
     return new Promise((resolve, reject) => {
-        initResponse();
 
         var userName = req.params.userId;
         var functionName = req.params.functionName;
@@ -227,8 +249,16 @@ exports.invoke = function (req, res) {
             parameters = req.params.parameters.split(',');
         }
         console.log(parameters);
+        console.log("CREATE CLIENT: " + req.params.createNewFabricClient);
 
-        fabric_client = new Fabric_Client();
+
+        if(req.params.createNewFabricClient){
+            initResponse();
+            console.log('inside');
+            fabric_client = new Fabric_Client();
+        }
+
+
         // setup the fabric network
         var channel = fabric_client.newChannel('mychannel');
         var peer = fabric_client.newPeer('grpc://localhost:7051');
@@ -245,11 +275,11 @@ exports.invoke = function (req, res) {
 
         userFromPersistence.then((user_from_store) => {
             if (user_from_store && user_from_store.isEnrolled()) {
-                console.log('Successfully loaded user1 from persistence');
+                console.log('Successfully loaded '+ userName+' from persistence');
                 member_user = user_from_store;
             } else {
-                response.err.push('Failed to get user1.... run registerUser.js');
-                throw new Error('Failed to get user1.... run registerUser.js');
+                response.err.push('Failed to get '+ userName+'.... run registerUser.js');
+                throw new Error('Failed to get '+ userName+'.... run registerUser.js');
             }
 
             // get a transaction id object based on the current user assigned to fabric client
