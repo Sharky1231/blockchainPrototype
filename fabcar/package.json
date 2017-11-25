@@ -19,7 +19,10 @@
     "requirejs": "2.3.5",
     "font-awesome": "4.7.0",
     "angularjs-scroll-glue": "2.2.0",
-    "q": "1.5.1"
+    "q": "1.5.1",
+    "jsrsasign": "8.0.4",
+    "jsonwebtoken": "8.1.0",
+    "pg": "7.4.0"
   },
   "author": "Anthony O'Dowd",
   "license": "Apache-2.0",

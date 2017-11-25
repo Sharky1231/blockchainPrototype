@@ -1,10 +1,12 @@
 var appname = angular.module('blockchainDemo', []);
 appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha256',
     function ($scope, $http, $q, logs, sha256) {
+        let ctrl = this;
+        $scope.token = '';
         $scope.logMessages = logs.getLogMessages();
         $scope.loading = false;
         $scope.state = 'user';
-        $scope.loggedIn = false;
+        $scope.loggedIn = true;
         $scope.userError = '';
 
         $scope.userName = '';
@@ -19,7 +21,15 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
         $scope.functionType = $scope.functionTypes[0];
 
         $scope.registerAdmin = function () {
-            getData('/enrollAdmin', "Enrolling admin...");
+            let enrollAdmin = getData('/enrollAdmin', "Enrolling admin...");
+            enrollAdmin.then(() => {
+                var getMethods = getData('/query/admin/getAvailFunctions', "Getting available functions...");
+
+                getMethods.then((data) => {
+                    $scope.availableFunctions = JSON.parse(data);
+                    $scope.selectedFunction = $scope.availableFunctions[0];
+                });
+            });
         };
 
         $scope.registerUser = function () {
@@ -28,15 +38,7 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
             let userName = this.userName;
             let registerUser = getData('/enrollUser/' + userName + '/' + hashedPass, "Registering '" + userName + "'...");
 
-            registerUser.then((data) => {
-                // var getMethods = getData('/query/' + userName + "/getAvailFunctions", "Getting available functions...");
-                //
-                // getMethods.then((data) => {
-                //     $scope.availableFunctions = JSON.parse(data);
-                //     $scope.selectedFunction = $scope.availableFunctions[0];
-                //     $scope.loggedIn = true;
-                // });
-
+            registerUser.then(() => {
                 return $scope.logIn(userName, this.password);
             }).catch(() => {
                 $scope.loggedIn = false;
@@ -53,7 +55,16 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
                 let parsedData = JSON.parse(data);
                 $scope.userName = parsedData.actor;
                 $scope.subjects = parsedData.subject;
+
                 $scope.loggedIn = true;
+
+                // var getMethods = getData('/query/' + userName + "/getAvailFunctions", "Getting available functions...");
+                //
+                // getMethods.then((data) => {
+                //     $scope.availableFunctions = JSON.parse(data);
+                //     $scope.selectedFunction = $scope.availableFunctions[0];
+                //     $scope.loggedIn = true;
+                // });
             }).catch(() => {
                 $scope.loggedIn = false;
                 logs.addMessage("Error: Loging in of " + userName + " failed!");
@@ -62,6 +73,8 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
 
         $scope.logout = function () {
             $scope.loggedIn = false;
+            $scope.userError = '';
+            $scope.token = '';
         };
 
         $scope.executeFunction = function () {
@@ -80,6 +93,14 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
             });
         };
 
+        $scope.getPatientData = function (patientId) {
+          let fetchData = getData('/getData/'+patientId, 'Getting data for subject: '+patientId);
+
+            fetchData.then((data) => {
+                $scope.patientData = JSON.parse(JSON.stringify(data[0]));
+            });
+        };
+
 
         function getData(path, introMessage) {
             // perform some asynchronous operation, resolve or reject the promise when appropriate.
@@ -87,30 +108,35 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
                 logs.addMessage(introMessage);
                 $scope.loading = true;
 
-                $http.get(path, {timeout: 10000}).then(function successCallback(response) {
-                    let messages = response.data.messages;
-                    let data = response.data.data;
-                    let err = response.data.err;
+                $http.get(path, {
+                    method: 'GET',
+                    headers: { 'Authorization': $scope.token },
+                    timeout: 8000})
+                    .then(function successCallback(response) {
+                        let messages = response.data.messages;
+                        let data = response.data.data;
+                        let err = response.data.err;
+                        $scope.token = response.data.token;
 
-                    logs.addListOfMessages(messages);
+                        logs.addListOfMessages(messages);
 
-                    if (err.length > 0) {
-                        logs.addListOfMessages(err);
+                        if (err.length > 0) {
+                            logs.addListOfMessages(err);
+                            $scope.loading = false;
+                            $scope.userError = 'Error: ' + err;
+                            reject();
+                            return;
+                        }
+
+
                         $scope.loading = false;
-                        $scope.userError = 'Error: ' + err;
+                        resolve(data);
+                    }, function errorCallback(response) {
+                        $scope.loading = false;
+                        logs.addMessage("Failed: request timed out! Error: "+ response.err);
+                        $scope.userError = 'Error: ' + response.err;
                         reject();
-                        return;
-                    }
-
-
-                    $scope.loading = false;
-                    resolve(data);
-                }, function errorCallback(response) {
-                    $scope.loading = false;
-                    logs.addMessage("Failed: request timed out! Error: "+ response.err);
-                    $scope.userError = 'Error: ' + response.err;
-                    reject();
-                });
+                    });
             });
         }
 

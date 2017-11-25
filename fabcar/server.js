@@ -9,6 +9,7 @@ var express = require('express'),
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static('./'));
+app.use(express.static('./web'));
 
 
 var routes = require('./web/routes'); //importing route
@@ -18,4 +19,4 @@ routes(app); //register the route
 app.listen(port);
 
 
-console.log('API server is running nuts on: ' + port);
+console.log('Server is running nuts on: ' + port);

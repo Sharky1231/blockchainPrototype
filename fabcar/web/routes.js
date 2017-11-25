@@ -1,25 +1,29 @@
 'use strict';
 module.exports = function(app) {
-    let ctrl = require('./serverController');
+    let svCtrl = require('./serverController');
+    let dbCtrl = require('./databaseController');
 
     app.route('/')
-        .get(ctrl.showIndex);
+        .get(svCtrl.showIndex);
 
     app.route('/enrollAdmin')
-        .get(ctrl.enrollAdmin);
+        .get(svCtrl.enrollAdmin);
 
     app.route('/enrollUser/:userId/:hashedPass')
-        .get(ctrl.enrollUser);
+        .get(svCtrl.enrollUser);
 
     app.route('/login/:userId/:hashedPass')
-        .get(ctrl.loginUser);
+        .get(svCtrl.loginUser);
 
     app.route('/query/:userId/:functionName/:parameters')
-        .get(ctrl.queryMethod);
+        .get(svCtrl.queryMethod);
 
     app.route('/query/:userId/:functionName/')
-        .get(ctrl.queryMethodNoParameters);
+        .get(svCtrl.queryMethodNoParameters);
 
     app.route('/invoke/:userId/:functionName/:parameters')
-        .get(ctrl.invoke);
+        .get(svCtrl.invoke);
+
+    app.route('/getData/:patientId')
+        .get(dbCtrl.getData)
 };

@@ -5,10 +5,14 @@ let Fabric_CA_Client = require('fabric-ca-client');
 let path = require('path');
 let util = require('util');
 let os = require('os');
+let jwt = require('jsonwebtoken');
+
+const store_path = path.join(__dirname, 'hfc-key-store');
 let fabric_ca_client = null;
 let fabric_client = new Fabric_Client();
 
-const store_path = path.join(__dirname, 'hfc-key-store');
+let secret = '1s5aBmdX9GU7cvChcrwrzTHcvfhjmbQWEEhguiiNmdjchvkeoora';
+let publicKeyHashed = '';
 
 // var fabric_client = new Fabric_Client();
 // var fabric_ca_client = null;
@@ -20,7 +24,8 @@ const store_path = path.join(__dirname, 'hfc-key-store');
 let response = {
     data: [],
     messages: [],
-    err: []
+    err: [],
+    token: ''
 };
 
 exports.showIndex = function (req, res) {
@@ -76,6 +81,8 @@ exports.enrollAdmin = function (req, res) {
             response.err.push('Failed to enroll admin: ' + err);
         }).then(() => {
             console.log(response);
+            publicKeyHashed = 'admin';
+            response.token = generateToken(req);
             resolve(res.json(response));
         });
     });
@@ -87,7 +94,6 @@ exports.enrollUser = function (req, res) {
 
         let userName = req.params.userId;
         let password = req.params.hashedPass;
-        let publicKeyHashed = '';
 
         fabric_client = new Fabric_Client();
         fabric_ca_client = null;
@@ -111,13 +117,13 @@ exports.enrollUser = function (req, res) {
             // at this point we should have the admin user
             // first need to register the user with the CA server
             return fabric_ca_client.register({enrollmentID: userName, affiliation: 'org1.department1'}, admin_user);
-        }).then((secret) => {
+        }).then((userSecret) => {
             // next we need to enroll the user with CA server
-            if (secret !== undefined) {
-                console.log('Successfully registered: ' + userName + ' - secret:' + secret);
+            if (userSecret !== undefined) {
+                console.log('Successfully registered: ' + userName + ' - secret:' + userSecret);
             }
 
-            return fabric_ca_client.enroll({enrollmentID: userName, enrollmentSecret: secret});
+            return fabric_ca_client.enroll({enrollmentID: userName, enrollmentSecret: userSecret});
         }).then((enrollment) => {
             response.messages.push('Successfully enrolled member user: ' + userName);
             return fabric_client.createUser(
@@ -149,10 +155,12 @@ exports.enrollUser = function (req, res) {
             req.params.userId = userName;
             req.params.password = password;
             req.params.functionName = 'createRecord';
-            req.params.parameters = publicKeyHashed + ',' + userName + ',' +password;
+            req.params.parameters = publicKeyHashed + ',' + userName + ',' +password +',1205931442,patient2';
             req.params.createNewFabricClient = false;
+            req.headers.authorization = generateToken(req);
             return exports.invoke(req, res);
         }).then(() => {
+            // Return token
             resolve(res.json(response));
         })
     });
@@ -161,20 +169,24 @@ exports.enrollUser = function (req, res) {
 exports.loginUser = function (req, res) {
     return new Promise((resolve, reject) => {
         initResponse();
+
         getUserFromPersistence(false, req.params.userId, false).then((user) => {
             if(user === null) {
                 throw new Error('User not found');
             }
 
             let publicKey = user._identity._publicKey._key.pubKeyHex;
-            let publicKeyHashed = user.getCryptoSuite().hash(publicKey, 'SHA2');
+            publicKeyHashed = user.getCryptoSuite().hash(publicKey, 'SHA2');
+
+            req.headers.authorization = generateToken(req);
 
             req.params.functionName = 'verifyUser';
             req.params.parameters = publicKeyHashed +','+req.params.hashedPass;
             req.params.createNewFabricClient = false;
+            req.params.returnData = false;
             return exports.queryMethod(req, res)
-        }).then((res) => {
-            console.log(res);
+        }).then(() => {
+            response.token = generateToken(req);
             resolve(res.json(response));
         }).catch((err) => {
             console.log(err.message);
@@ -191,6 +203,9 @@ exports.queryMethodNoParameters = function (req, res) {
 exports.queryMethod = function (req, res) {
     return new Promise((resolve, reject) => {
         initResponse();
+
+        if(!isValidToken(req))
+            resolve(res.json(response));
 
         var userName = req.params.userId;
         var functionName = req.params.functionName;
@@ -234,13 +249,19 @@ exports.queryMethod = function (req, res) {
         }).catch((err) => {
             response.err.push('Failed to query successfully :: ' + err);
         }).then(() => {
-            resolve(res.json(response));
+            if(!req.params.returnData)
+                resolve(res.json(response));
+
+            resolve(true);
         });
     });
 };
 
 exports.invoke = function (req, res) {
     return new Promise((resolve, reject) => {
+
+        if(!isValidToken(req))
+            resolve(res.json(response));
 
         var userName = req.params.userId;
         var functionName = req.params.functionName;
@@ -252,7 +273,7 @@ exports.invoke = function (req, res) {
         console.log("CREATE CLIENT: " + req.params.createNewFabricClient);
 
 
-        if(req.params.createNewFabricClient){
+        if(req.params.createNewFabricClient === null || req.params.createNewFabricClient){
             initResponse();
             console.log('inside');
             fabric_client = new Fabric_Client();
@@ -403,6 +424,7 @@ exports.invoke = function (req, res) {
             console.error('Failed to invoke successfully :: ' + err);
             response.err.push('Failed to invoke successfully :: ' + err);
         }).then(() => {
+            // Invoke returns
             resolve(res.json(response));
         });
     });
@@ -468,6 +490,40 @@ let initResponse = function () {
     response = {
         data: [],
         messages: [],
-        err: []
+        err: [],
+        token: ''
     };
 };
+
+// generate the JWT
+function generateToken(req){
+    let token = jwt.sign({
+        auth:  publicKeyHashed,
+        agent: req.headers['user-agent'],
+        exp:   Math.floor(new Date().getTime()/1000) + 7*24*60*60}, secret);
+
+    return token;
+}
+
+function validateToken(req) {
+    let token = req.headers.authorization;
+    let decoded = '';
+    try {
+        decoded = jwt.verify(token, secret);
+    } catch (e) {
+        return false;
+    }
+    if(!decoded || decoded.auth !== publicKeyHashed) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+function isValidToken(req) {
+    if (validateToken(req))
+        return true;
+
+    response.err.push("Authentication failed. Token invalid or expired.")
+    return false;
+}

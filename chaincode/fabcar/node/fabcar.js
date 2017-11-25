@@ -43,8 +43,13 @@ let Chaincode = class {
         let permissions = [];
         permissions.push({
             actor: 'doctor1',
-            password: 'hash123',
-            subject: ['p1', 'p2'],
+            password: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
+            subject: ['1205931442', 'patient 2'],
+        });
+        permissions.push({
+            actor: 'doctor2',
+            password: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
+            subject: ['patient 3'],
         });
 
         for (let i = 0; i < permissions.length; i++) {

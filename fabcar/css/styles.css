@@ -51,3 +51,11 @@
     float: right;
     margin-top: 10px;
 }
+
+#navigation {
+    margin-top: 0;
+}
+
+#header {
+    margin-bottom: 20px;
+}
