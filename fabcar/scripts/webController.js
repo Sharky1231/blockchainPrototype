@@ -1,11 +1,16 @@
 var appname = angular.module('blockchainDemo', []);
-appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha256',
-    function ($scope, $http, $q, logs, sha256) {
-        let ctrl = this;
-        $scope.token = '';
+appname.controller('mainCtrl', ['$scope', '$http', '$window', '$q', 'LoggingService', 'sha256',
+    function ($scope, $http, $window, $q, logs, sha256) {
+        // let ctrl = this;
+        // ctrl.token = '';
         $scope.logMessages = logs.getLogMessages();
         $scope.loading = false;
+
         $scope.state = 'user';
+        $scope.loginState = 'personal';
+        $scope.selectedPatient = '';
+
+
         $scope.loggedIn = true;
         $scope.userError = '';
 
@@ -72,9 +77,12 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
         };
 
         $scope.logout = function () {
+            logs.addMessage($scope.userName + " logged out!");
             $scope.loggedIn = false;
             $scope.userError = '';
-            $scope.token = '';
+            $scope.patientData = '';
+            $scope.prescriptions = '';
+            $window.sessionStorage.token = '';
         };
 
         $scope.executeFunction = function () {
@@ -94,10 +102,12 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
         };
 
         $scope.getPatientData = function (patientId) {
+          $scope.selectedPatient = patientId;
           let fetchData = getData('/getData/'+patientId, 'Getting data for subject: '+patientId);
 
             fetchData.then((data) => {
                 $scope.patientData = JSON.parse(JSON.stringify(data[0]));
+                $scope.prescriptions = data[1] != undefined ? JSON.parse(JSON.stringify(data[1])) : null;
             });
         };
 
@@ -110,17 +120,17 @@ appname.controller('mainCtrl', ['$scope', '$http', '$q', 'LoggingService', 'sha2
 
                 $http.get(path, {
                     method: 'GET',
-                    headers: { 'Authorization': $scope.token },
+                    headers: { 'Authorization': $window.sessionStorage.token },
                     timeout: 8000})
                     .then(function successCallback(response) {
                         let messages = response.data.messages;
                         let data = response.data.data;
                         let err = response.data.err;
-                        $scope.token = response.data.token;
+                        $window.sessionStorage.token = response.data.token;
 
                         logs.addListOfMessages(messages);
 
-                        if (err.length > 0) {
+                        if (err && err.length > 0) {
                             logs.addListOfMessages(err);
                             $scope.loading = false;
                             $scope.userError = 'Error: ' + err;

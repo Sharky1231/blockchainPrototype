@@ -41,16 +41,16 @@ let Chaincode = class {
     async initLedger(stub, args) {
         console.info('============= START : Initialize Ledger ===========');
         let permissions = [];
-        permissions.push({
-            actor: 'doctor1',
-            password: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
-            subject: ['1205931442', 'patient 2'],
-        });
-        permissions.push({
-            actor: 'doctor2',
-            password: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
-            subject: ['patient 3'],
-        });
+        // permissions.push({
+        //     actor: 'doctor1',
+        //     password: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
+        //     subject: ['1205931442', 'patient 2'],
+        // });
+        // permissions.push({
+        //     actor: 'doctor2',
+        //     password: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
+        //     subject: ['patient 3'],
+        // });
 
         for (let i = 0; i < permissions.length; i++) {
             await stub.putState('PERMISSION' + i, Buffer.from(JSON.stringify(permissions[i])));
@@ -96,6 +96,10 @@ let Chaincode = class {
         // if (!permissionInBytes || permissionInBytes.toString().length <= 0) {
         //     throw new Error(permissionId + ' does not exist: ');
         // }
+
+        if(!permissionInBytes){
+            throw new Error('Hashed public key not found!');
+        }
 
         var temp = JSON.parse(permissionInBytes.toString());
 

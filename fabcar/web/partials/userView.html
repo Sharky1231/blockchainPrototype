@@ -31,16 +31,16 @@
         </div>
         <div style="margin-bottom: 50px;">
             <button ng-click="logout()" style="float: right;" class="btn btn-default">Logout</button>
-            <h3><span class="glyphicon glyphicon-user"></span> {{userName}}</h3>
+            <h3><i class="fa fa-id-card-o" aria-hidden="true"></i> {{userName}}</h3>
         </div>
 
         <div class="row">
             <div class="col-sm-3">
                 <div class="panel panel-default" style="height: 600px; overflow-x: hidden;">
-                    <div class="panel-heading">Access to patients</div>
+                    <div class="panel-heading"><i class="fa fa-list-alt" style="margin-right: 5px;" aria-hidden="true"></i>Access to patients</div>
                     <div class="panel-body">
                         <div ng-if="subjects.length > 0" class="list-group">
-                            <button ng-repeat="subject in subjects" ng-click="getPatientData(subject)" type="button" class="list-group-item">{{subject}}</button>
+                            <button ng-repeat="subject in subjects" ng-click="getPatientData(subject)" type="button" ng-class="{'active' : subject === selectedPatient}" class="list-group-item">{{subject}}</button>
                         </div>
                         <ul ng-if="subjects.length == 0" class="list-group">
                             <li class="list-group-item list-group-item-warning">No patients permissions</li>
@@ -51,14 +51,23 @@
             <div class="col-sm-9" style="height: 550px; min-height: 550px; overflow-x: hidden;">
                 <div id="navigation">
                     <ul class="nav nav-tabs">
-                        <li role="presentation" ng-class="{'active': state=='personal'}" ng-click="state = 'personal'"><a href="#">Personal info</a></li>
-                        <li role="presentation" ng-class="{'active': state=='data'}" ng-click="state = 'data'"><a href="#">Data</a></li>
-                        <li role="presentation" ng-class="{'active': state=='images'}" ng-click="state = 'images'"><a href="#">Images</a></li>
+                        <li role="presentation" ng-class="{'active': loginState=='personal'}" ng-click="loginState = 'personal'">
+                            <a href="#"><i class="fa fa-user-o" style="margin-right: 5px;" aria-hidden="true"></i>Personal info</a>
+                        </li>
+                        <li role="presentation" ng-class="{'active': loginState=='prescriptions'}" ng-click="loginState = 'prescriptions'">
+                            <a href="#"><i class="fa fa-clipboard" style="margin-right: 5px;" aria-hidden="true"></i>Prescription history</a>
+                        </li>
+                        <li role="presentation" ng-class="{'active': loginState=='patientFiles'}" ng-click="loginState = 'patientFiles'">
+                            <a href="#"><i class="fa fa-file-o" style="margin-right: 5px;" aria-hidden="true"></i>Images</a>
+                        </li>
+                        <li class="right" role="presentation" ng-class="{'active': loginState=='permissions'}" ng-click="loginState = 'permissions'">
+                            <a href="#"><i class="fa fa-users" style="margin-right: 5px;" aria-hidden="true"></i>Permissions</a>
+                        </li>
                     </ul>
                 </div>
 
                 <!--Personal-->
-                <div ng-if="state ==='personal'">
+                <div ng-if="loginState ==='personal'">
                     <div class="col-sm-6">
                         <div class="form-group">
                             <label>CPR:</label>
@@ -80,18 +89,38 @@
                         </div>
                         <div class="form-group">
                             <label>Date of birth:</label>
-                            <input ng-model="patientData.dateOfBirth" type="text" class="form-control" disabled>
+                            <input placeholder="{{patientData.dateOfBirth | date}}" type="text" class="form-control" disabled>
                         </div>
                     </div>
                 </div>
 
                 <!--Data-->
-                <div ng-if="state ==='data'">
-b
+                <div ng-if="loginState ==='prescriptions'">
+                    <table class="table table-bordered">
+                        <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Dosage</th>
+                            <th>Date prescribed</th>
+                            <th>Comment</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr ng-if="prescriptions" ng-repeat="pres in prescriptions">
+                            <td>{{ pres.name }}</td>
+                            <td>{{ pres.dose }}</td>
+                            <td>{{ pres.date | date}}</td>
+                            <td>{{ pres.comment }}</td>
+                        </tr>
+                        <tr ng-if="!prescriptions">
+                            <td colspan="4" class="warning">No data</td>
+                        </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <!--Images-->
-                <div ng-if="state ==='images'">
+                <div ng-if="loginState ==='patientFiles'">
 c
                 </div>
 

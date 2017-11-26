@@ -80,6 +80,28 @@ exports.enrollAdmin = function (req, res) {
             console.log('Failed to enroll admin: ' + err);
             response.err.push('Failed to enroll admin: ' + err);
         }).then(() => {
+            // CREATE SAMPLE DOCTOR 1
+            req.params.userId = 'doctor1';
+            req.params.password = 'a';
+            req.params.hashedPass = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb';
+            req.params.functionName = 'createRecord';
+            req.params.patients = '2610911471,1105903699';
+            req.params.createNewFabricClient = false;
+            req.headers.authorization = generateToken(req);
+            req.doNotResolve = true;
+            return exports.enrollUser(req, res);
+        }).then(() => {
+            // CREATE SAMPLE DOCTOR 2
+            req.params.userId = 'doctor2';
+            req.params.password = 'a';
+            req.params.hashedPass = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb';
+            req.params.functionName = 'createRecord';
+            req.params.patients = '1403981125';
+            req.params.createNewFabricClient = false;
+            req.headers.authorization = generateToken(req);
+            req.doNotResolve = true;
+            return exports.enrollUser(req, res);
+        }).then(() => {
             console.log(response);
             publicKeyHashed = 'admin';
             response.token = generateToken(req);
@@ -155,12 +177,19 @@ exports.enrollUser = function (req, res) {
             req.params.userId = userName;
             req.params.password = password;
             req.params.functionName = 'createRecord';
-            req.params.parameters = publicKeyHashed + ',' + userName + ',' +password +',1205931442,patient2';
+
+            if(!req.params.patients)
+                req.params.parameters = publicKeyHashed + ',' + userName + ',' +password;
+            else
+                req.params.parameters = publicKeyHashed + ',' + userName + ',' +password+ ',' + req.params.patients;
             req.params.createNewFabricClient = false;
             req.headers.authorization = generateToken(req);
             return exports.invoke(req, res);
         }).then(() => {
-            // Return token
+            if(req.doNotResolve) {
+                resolve(true);
+                return;
+            }
             resolve(res.json(response));
         })
     });
@@ -183,7 +212,7 @@ exports.loginUser = function (req, res) {
             req.params.functionName = 'verifyUser';
             req.params.parameters = publicKeyHashed +','+req.params.hashedPass;
             req.params.createNewFabricClient = false;
-            req.params.returnData = false;
+            req.params.returnData = true;
             return exports.queryMethod(req, res)
         }).then(() => {
             response.token = generateToken(req);
@@ -206,6 +235,8 @@ exports.queryMethod = function (req, res) {
 
         if(!isValidToken(req))
             resolve(res.json(response));
+
+        response.token = req.headers.authorization;
 
         var userName = req.params.userId;
         var functionName = req.params.functionName;
@@ -249,10 +280,13 @@ exports.queryMethod = function (req, res) {
         }).catch((err) => {
             response.err.push('Failed to query successfully :: ' + err);
         }).then(() => {
-            if(!req.params.returnData)
-                resolve(res.json(response));
+            if(req.params.returnData){
+                resolve(true);
+                return;
+            }
 
-            resolve(true);
+            resolve(res.json(response));
+
         });
     });
 };
@@ -424,7 +458,11 @@ exports.invoke = function (req, res) {
             console.error('Failed to invoke successfully :: ' + err);
             response.err.push('Failed to invoke successfully :: ' + err);
         }).then(() => {
-            // Invoke returns
+            if(req.doNotResolve){
+                resolve(true);
+                return;
+            }
+
             resolve(res.json(response));
         });
     });
