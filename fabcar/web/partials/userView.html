@@ -1,10 +1,10 @@
 <div ng-if="state == 'user'">
-     <!--Register / Login form-->
+    <!--Register / Login form-->
     <div ng-if="!loggedIn" class="col-sm-4 col-sm-offset-4">
-        <div ng-if="userError" class="alert alert-danger" role="alert">
+        <div ng-if="userMessage" class="alert alert-{{messageType}}" role="alert">
             <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
-            <span class="sr-only">Error:</span>
-            {{ userError }}
+            <span class="sr-only">Success:</span>
+            {{ userMessage }}
         </div>
 
         <div class="input-group">
@@ -17,17 +17,19 @@
         </div>
         <div class="buttonsRight">
             <button ng-click="registerUser()"
-                    class="btn btn-default">Register</button>
+                    class="btn btn-default">Register
+            </button>
             <button ng-click="logIn(userName, password)"
-                    class="btn btn-default">Login</button>
+                    class="btn btn-default">Login
+            </button>
         </div>
     </div>
 
     <div ng-if="loggedIn">
-        <div ng-if="userError" class="alert alert-danger" role="alert">
+        <div ng-if="userMessage" class="alert alert-{{messageType}}" role="alert">
             <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
-            <span class="sr-only">Error:</span>
-            {{ userError }}
+            <span class="sr-only">Success:</span>
+            {{ userMessage }}
         </div>
         <div style="margin-bottom: 50px;">
             <button ng-click="logout()" style="float: right;" class="btn btn-default">Logout</button>
@@ -37,10 +39,22 @@
         <div class="row">
             <div class="col-sm-3">
                 <div class="panel panel-default" style="height: 600px; overflow-x: hidden;">
-                    <div class="panel-heading"><i class="fa fa-list-alt" style="margin-right: 5px;" aria-hidden="true"></i>Access to patients</div>
+                    <div class="panel-heading"><i class="fa fa-list-alt" style="margin-right: 5px;"
+                                                  aria-hidden="true"></i>Access to patients
+                    </div>
+
+                    <!--Patients list-->
                     <div class="panel-body">
                         <div ng-if="subjects.length > 0" class="list-group">
-                            <button ng-repeat="subject in subjects" ng-click="getPatientData(subject)" type="button" ng-class="{'active' : subject === selectedPatient}" class="list-group-item">{{subject}}</button>
+                            <button ng-repeat="subject in subjects" ng-click="getPatientData(subject)" type="button"
+                                    ng-class="{'active' : subject === selectedPatient}" class="list-group-item left">
+                                {{subject.id}}
+                                <span style="float:right">
+                                    <i class="fa fa-pencil" ng-class="{'gray' : subject.write == 'false'}"
+                                       aria-hidden="true"></i>
+                                    <i class="fa fa-book" aria-hidden="true"></i>
+                                    <i class="fa fa-handshake-o" ng-class="{'gray' : subject.granted == 'false'}" aria-hidden="true"></i>
+                                </span>
                         </div>
                         <ul ng-if="subjects.length == 0" class="list-group">
                             <li class="list-group-item list-group-item-warning">No patients permissions</li>
@@ -51,46 +65,68 @@
             <div class="col-sm-9" style="height: 550px; min-height: 550px; overflow-x: hidden;">
                 <div id="navigation">
                     <ul class="nav nav-tabs">
-                        <li role="presentation" ng-class="{'active': loginState=='personal'}" ng-click="loginState = 'personal'">
-                            <a href="#"><i class="fa fa-user-o" style="margin-right: 5px;" aria-hidden="true"></i>Personal info</a>
+                        <li role="presentation" ng-class="{'active': loginState=='personal'}"
+                            ng-click="loginState = 'personal'">
+                            <a href="#"><i class="fa fa-user-o" style="margin-right: 5px;" aria-hidden="true"></i>Personal
+                                info</a>
                         </li>
-                        <li role="presentation" ng-class="{'active': loginState=='prescriptions'}" ng-click="loginState = 'prescriptions'">
-                            <a href="#"><i class="fa fa-clipboard" style="margin-right: 5px;" aria-hidden="true"></i>Prescription history</a>
+                        <li role="presentation" ng-class="{'active': loginState=='prescriptions'}"
+                            ng-click="loginState = 'prescriptions'">
+                            <a href="#"><i class="fa fa-clipboard" style="margin-right: 5px;" aria-hidden="true"></i>Prescription
+                                history</a>
                         </li>
-                        <li role="presentation" ng-class="{'active': loginState=='patientFiles'}" ng-click="loginState = 'patientFiles'">
-                            <a href="#"><i class="fa fa-file-o" style="margin-right: 5px;" aria-hidden="true"></i>Images</a>
+                        <!--<li role="presentation" ng-class="{'active': loginState=='patientFiles'}" ng-click="loginState = 'patientFiles'">-->
+                        <!--<a href="#"><i class="fa fa-file-o" style="margin-right: 5px;" aria-hidden="true"></i>Images</a>-->
+                        <!--</li>-->
+                        <li class="right" role="presentation" ng-class="{'active': loginState=='grantPermission'}"
+                            ng-click="loginState = 'grantPermission'">
+                            <a href="#"><i class="fa fa-user-plus" style="margin-right: 5px;" aria-hidden="true"></i>Grant permission</a>
                         </li>
-                        <li class="right" role="presentation" ng-class="{'active': loginState=='permissions'}" ng-click="loginState = 'permissions'">
-                            <a href="#"><i class="fa fa-users" style="margin-right: 5px;" aria-hidden="true"></i>Permissions</a>
+                        <li class="right" role="presentation" ng-class="{'active': loginState=='revokePermission'}"
+                            ng-click="loginState = 'revokePermission'">
+                            <a href="#"><i class="fa fa-user-times" style="margin-right: 5px;" aria-hidden="true"></i>Revoke permission</a>
                         </li>
                     </ul>
                 </div>
 
                 <!--Personal-->
                 <div ng-if="loginState ==='personal'">
-                    <div class="col-sm-6">
-                        <div class="form-group">
-                            <label>CPR:</label>
-                            <input ng-model="patientData.cpr" type="text" class="form-control" disabled>
+                    <div ng-if="patientData">
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label>CPR:</label>
+                                <input ng-model="patientData.cpr" type="text" class="form-control" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label>Address:</label>
+                                <input ng-model="patientData.address" ng-disabled="selectedPatient.write == 'false'"
+                                       type="text" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Email:</label>
+                                <input ng-model="patientData.email" ng-disabled="selectedPatient.write == 'false'"
+                                       type="text" class="form-control">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Address:</label>
-                            <input ng-model="patientData.address" type="text" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label>Email:</label>
-                            <input ng-model="patientData.email" type="text" class="form-control">
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label>Name:</label>
+                                <input ng-model="patientData.name" type="text" class="form-control" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label>Date of birth:</label>
+                                <input placeholder="{{patientData.dateOfBirth | date}}" type="text" class="form-control"
+                                       disabled>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-sm-6">
-                        <div class="form-group">
-                            <label>Name:</label>
-                            <input ng-model="patientData.name" type="text" class="form-control" disabled>
-                        </div>
-                        <div class="form-group">
-                            <label>Date of birth:</label>
-                            <input placeholder="{{patientData.dateOfBirth | date}}" type="text" class="form-control" disabled>
-                        </div>
+                    <div ng-if="!patientData" ng-include="'partials/warning.html'"></div>
+
+                    <div class="col-sm-12">
+                        <button ng-click="saveData(patientData)" style="" ng-disabled="selectedPatient.write == 'false'"
+                                class="btn btn-default"><i class="fa fa-floppy-o" style="margin-right: 5px"
+                                                           aria-hidden="true"></i>Save data
+                        </button>
                     </div>
                 </div>
 
@@ -112,21 +148,54 @@
                             <td>{{ pres.date | date}}</td>
                             <td>{{ pres.comment }}</td>
                         </tr>
-                        <tr ng-if="!prescriptions">
-                            <td colspan="4" class="warning">No data</td>
-                        </tr>
                         </tbody>
                     </table>
+
+                    <div ng-if="!prescriptions" ng-include="'partials/warning.html'"></div>
                 </div>
 
                 <!--Images-->
                 <div ng-if="loginState ==='patientFiles'">
-c
+                    <div ng-include="'partials/warning.html'"></div>
                 </div>
 
-                <div class="col-sm-12">
-                    <button ng-click="logout()" style="" class="btn btn-default">Save data</button>
+                <!--Grant permission-->
+                <div ng-if="loginState ==='grantPermission'">
+                    <div class="container">
+                        <div class="form-group col-sm-7">
+                            <label>Actor medical ID:</label>
+                            <input type="input" class="form-control" placeholder="Medical ID of reciever" ng-model="permissionReciever" ng-disabled="selectedPatient.granted =='true'">
+                        </div>
+
+                        <div class="form-group col-sm-12 ">
+                            <label>Permission type:</label>
+                            <label class="radio-inline">
+                                <input type="radio" ng-model="permissionType" value="read" name="optradio" ng-disabled="selectedPatient.granted =='true'">
+                                Read
+                            </label>
+                            <label class="radio-inline">
+                                <input type="radio" ng-model="permissionType" value="write" name="optradio" ng-disabled="selectedPatient.write == 'false' || selectedPatient.granted =='true'">
+                                Write
+                            </label>
+                        </div>
+
+                        <div class="col-sm-6">
+                            <!--Only can grant if I own it-->
+                            <button ng-click="grantPermission(patientData)" style=""
+                                    ng-disabled="selectedPatient.granted =='true'" class="btn btn-default"><i
+                                    class="fa fa-handshake-o" style="margin-right: 5px" aria-hidden="true"></i>
+                                Grant permission
+                            </button>
+                        </div>
+                    </div>
                 </div>
+
+                <!--Revoke permission-->
+                <div ng-if="loginState ==='revokePermission'">
+                    <div ng-include="'partials/warning.html'"></div>
+                </div>
+
+
             </div>
         </div>
     </div>

@@ -52,10 +52,10 @@ let Chaincode = class {
         //     subject: ['patient 3'],
         // });
 
-        for (let i = 0; i < permissions.length; i++) {
-            await stub.putState('PERMISSION' + i, Buffer.from(JSON.stringify(permissions[i])));
-            console.info('Added <--> ', permissions[i]);
-        }
+        // for (let i = 0; i < permissions.length; i++) {
+        //     await stub.putState('PERMISSION' + i, Buffer.from(JSON.stringify(permissions[i])));
+        //     console.info('Added <--> ', permissions[i]);
+        // }
         console.info('============= END : Initialize Ledger ===========');
     }
 
@@ -72,11 +72,11 @@ let Chaincode = class {
 
     async queryPermission(stub, args) {
         if (args.length != 1) {
-            throw new Error('Incorrect number of arguments. Expecting permissionID ex: PERMISSION0');
+            throw new Error('Incorrect number of arguments. Expecting permissionID');
         }
         let permissionId = args[0];
 
-        let permissionInBytes = await stub.getState(permissionId); //get the car from chaincode state
+        let permissionInBytes = await stub.getState(permissionId);
         if (!permissionInBytes || permissionInBytes.toString().length <= 0) {
             throw new Error(permissionId + ' does not exist: ');
         }
@@ -149,13 +149,13 @@ let Chaincode = class {
     async createRecord(stub, args) {
         console.info('============= START : Create Permission ===========');
         if (args.length < 2) {
-            throw new Error('Incorrect number of arguments. Expecting "PermissionKey", "Actor" and (optional) comma separated subjects');
+            throw new Error('Incorrect number of arguments. Expecting "PermissionKey", "Actor" and subjects with permissions.');
         }
 
         let subjects = [];
 
-        for(let i = 3; i < args.length; i++){
-            subjects.push(args[i]);
+        for(let i = 3; i < args.length; i+=3){
+            subjects.push({id: args[i], write: args[i+1], granted: args[i+2]});
         }
 
         let permission = {

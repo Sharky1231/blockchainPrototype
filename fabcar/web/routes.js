@@ -25,5 +25,11 @@ module.exports = function(app) {
         .get(svCtrl.invoke);
 
     app.route('/getData/:patientId')
-        .get(dbCtrl.getData)
+        .get(dbCtrl.getData);
+
+    app.route('/updateData/:encodedData')
+        .get(svCtrl.updateData);
+
+    app.route('/grantPermission/:userId/:patientId/:permissionType/:reciever')
+        .get(svCtrl.grantPermission);
 };

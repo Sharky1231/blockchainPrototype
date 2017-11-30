@@ -5,7 +5,9 @@ let Fabric_CA_Client = require('fabric-ca-client');
 let path = require('path');
 let util = require('util');
 let os = require('os');
+var atob = require('atob');
 let jwt = require('jsonwebtoken');
+let dbCtrl = require('./databaseController');
 
 const store_path = path.join(__dirname, 'hfc-key-store');
 let fabric_ca_client = null;
@@ -80,23 +82,34 @@ exports.enrollAdmin = function (req, res) {
             console.log('Failed to enroll admin: ' + err);
             response.err.push('Failed to enroll admin: ' + err);
         }).then(() => {
-            // CREATE SAMPLE DOCTOR 1
-            req.params.userId = 'doctor1';
+            // CREATE SAMPLE NURSE
+            req.params.userId = '112';
             req.params.password = 'a';
             req.params.hashedPass = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb';
             req.params.functionName = 'createRecord';
-            req.params.patients = '2610911471,1105903699';
+            req.params.patients = '1403981125,false,false,2610911471,false,false,1105903699,false,true';
+            req.params.createNewFabricClient = false;
+            req.headers.authorization = generateToken(req);
+            req.doNotResolve = true;
+            return exports.enrollUser(req, res);
+        }).then(() => {
+            // CREATE SAMPLE DOCTOR 1
+            req.params.userId = '113';
+            req.params.password = 'a';
+            req.params.hashedPass = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb';
+            req.params.functionName = 'createRecord';
+            req.params.patients = '1403981125,true,false';
             req.params.createNewFabricClient = false;
             req.headers.authorization = generateToken(req);
             req.doNotResolve = true;
             return exports.enrollUser(req, res);
         }).then(() => {
             // CREATE SAMPLE DOCTOR 2
-            req.params.userId = 'doctor2';
+            req.params.userId = '114';
             req.params.password = 'a';
             req.params.hashedPass = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb';
             req.params.functionName = 'createRecord';
-            req.params.patients = '1403981125';
+            req.params.patients = '2610911471,true,false,1105903699,false,true';
             req.params.createNewFabricClient = false;
             req.headers.authorization = generateToken(req);
             req.doNotResolve = true;
@@ -121,77 +134,88 @@ exports.enrollUser = function (req, res) {
         fabric_ca_client = null;
         let admin_user = null;
         let member_user = null;
-
         console.log("Trying register: " + userName);
         console.log('Store path:' + store_path);
 
-        let userFromPersistence = getUserFromPersistence(false, 'admin', true);
+        dbCtrl.verifyActorInDB(req).then((actor) => {
 
-        userFromPersistence.then((user_from_store) => {
-            if (user_from_store && user_from_store.isEnrolled()) {
-                console.log('Successfully loaded admin from persistence');
-                admin_user = user_from_store;
-            } else {
-                response.err.push('Failed to get admin.... run enrollAdmin.js');
+            if (!actor) {
+                response.err.push("User not found in DB");
                 resolve(res.json(response));
-            }
-
-            // at this point we should have the admin user
-            // first need to register the user with the CA server
-            return fabric_ca_client.register({enrollmentID: userName, affiliation: 'org1.department1'}, admin_user);
-        }).then((userSecret) => {
-            // next we need to enroll the user with CA server
-            if (userSecret !== undefined) {
-                console.log('Successfully registered: ' + userName + ' - secret:' + userSecret);
-            }
-
-            return fabric_ca_client.enroll({enrollmentID: userName, enrollmentSecret: userSecret});
-        }).then((enrollment) => {
-            response.messages.push('Successfully enrolled member user: ' + userName);
-            return fabric_client.createUser(
-                {
-                    username: userName,
-                    mspid: 'Org1MSP',
-                    cryptoContent: {privateKeyPEM: enrollment.key.toBytes(), signedCertPEM: enrollment.certificate}
-                });
-        }).then((user) => {
-            member_user = user;
-            let publicKey = user._identity._publicKey._key.pubKeyHex;
-            publicKeyHashed = user.getCryptoSuite().hash(publicKey, 'SHA2');
-            return fabric_client.setUserContext(member_user);
-        }).then(() => {
-
-            // response.messages.push(fabric_client.getClientConfig());
-            response.messages.push(userName + ': was successfully registered and enrolled.');
-
-            // exports.invoke(req, res);
-        }).catch((err) => {
-            response.err.push('Failed to register: ' + err);
-            if (err.toString().indexOf('Authorization') > -1) {
-                response.err.push('Authorization failures may be caused by having admin credentials from a previous CA instance.\n' +
-                    'Try again after deleting the contents of the store directory ' + store_path);
-            }
-            resolve(res.json(response));
-        }).then(() => {
-            // register user in the ledger and create default permission with empty subjects
-            req.params.userId = userName;
-            req.params.password = password;
-            req.params.functionName = 'createRecord';
-
-            if(!req.params.patients)
-                req.params.parameters = publicKeyHashed + ',' + userName + ',' +password;
-            else
-                req.params.parameters = publicKeyHashed + ',' + userName + ',' +password+ ',' + req.params.patients;
-            req.params.createNewFabricClient = false;
-            req.headers.authorization = generateToken(req);
-            return exports.invoke(req, res);
-        }).then(() => {
-            if(req.doNotResolve) {
-                resolve(true);
                 return;
             }
-            resolve(res.json(response));
-        })
+            else
+                response.data.push(actor);
+
+
+            let userFromPersistence = getUserFromPersistence(false, 'admin', true);
+
+            userFromPersistence.then((user_from_store) => {
+                if (user_from_store && user_from_store.isEnrolled()) {
+                    console.log('Successfully loaded admin from persistence');
+                    admin_user = user_from_store;
+                } else {
+                    response.err.push('Failed to get admin.... run enrollAdmin.js');
+                    resolve(res.json(response));
+                }
+
+                // at this point we should have the admin user
+                // first need to register the user with the CA server
+                return fabric_ca_client.register({enrollmentID: userName, affiliation: 'org1.department1'}, admin_user);
+            }).then((userSecret) => {
+                // next we need to enroll the user with CA server
+                if (userSecret !== undefined) {
+                    console.log('Successfully registered: ' + userName + ' - secret:' + userSecret);
+                }
+
+                return fabric_ca_client.enroll({enrollmentID: userName, enrollmentSecret: userSecret});
+            }).then((enrollment) => {
+                response.messages.push('Successfully enrolled member user: ' + userName);
+                return fabric_client.createUser(
+                    {
+                        username: userName,
+                        mspid: 'Org1MSP',
+                        cryptoContent: {privateKeyPEM: enrollment.key.toBytes(), signedCertPEM: enrollment.certificate}
+                    });
+            }).then((user) => {
+                member_user = user;
+                let publicKey = user._identity._publicKey._key.pubKeyHex;
+                publicKeyHashed = user.getCryptoSuite().hash(publicKey, 'SHA2');
+                return fabric_client.setUserContext(member_user);
+            }).then(() => {
+
+                // response.messages.push(fabric_client.getClientConfig());
+                response.messages.push(userName + ': was successfully registered and enrolled.');
+
+                // exports.invoke(req, res);
+            }).catch((err) => {
+                response.err.push('Failed to register: ' + err);
+                if (err.toString().indexOf('Authorization') > -1) {
+                    response.err.push('Authorization failures may be caused by having admin credentials from a previous CA instance.\n' +
+                        'Try again after deleting the contents of the store directory ' + store_path);
+                }
+                resolve(res.json(response));
+            }).then(() => {
+                // register user in the ledger and create default permission with empty subjects
+                req.params.userId = userName;
+                req.params.password = password;
+                req.params.functionName = 'createRecord';
+
+                if (!req.params.patients)
+                    req.params.parameters = publicKeyHashed + ',' + userName + ',' + password;
+                else
+                    req.params.parameters = publicKeyHashed + ',' + userName + ',' + password + ',' + req.params.patients;
+                req.params.createNewFabricClient = false;
+                req.headers.authorization = generateToken(req);
+                return exports.invoke(req, res);
+            }).then(() => {
+                if (req.doNotResolve) {
+                    resolve(true);
+                    return;
+                }
+                resolve(res.json(response));
+            })
+        });
     });
 };
 
@@ -200,7 +224,7 @@ exports.loginUser = function (req, res) {
         initResponse();
 
         getUserFromPersistence(false, req.params.userId, false).then((user) => {
-            if(user === null) {
+            if (user === null) {
                 throw new Error('User not found');
             }
 
@@ -210,7 +234,7 @@ exports.loginUser = function (req, res) {
             req.headers.authorization = generateToken(req);
 
             req.params.functionName = 'verifyUser';
-            req.params.parameters = publicKeyHashed +','+req.params.hashedPass;
+            req.params.parameters = publicKeyHashed + ',' + req.params.hashedPass;
             req.params.createNewFabricClient = false;
             req.params.returnData = true;
             return exports.queryMethod(req, res)
@@ -225,6 +249,33 @@ exports.loginUser = function (req, res) {
     });
 };
 
+exports.grantPermission = function (req, res) {
+    return new Promise((resolve, reject) => {
+        initResponse();
+
+        if (!exports.isValidToken(req)) {
+            response.err.push("Error: token invalid");
+            resolve(res.json(response));
+            return;
+        }
+
+        let userId = req.params.userId;
+        let patientId = req.params.patientId;
+        let permissionType = req.params.permissionType;
+        let reciever = req.params.reciever;
+
+        // get user from context
+        // execute method to grant permission
+            // it will check on blockchain if I have that patient, and is not granted
+            // add patient to my grantedList
+            // add patient to reciever list, with granted set to true
+        // return successfuly
+
+        resolve(res.json(response));
+
+    });
+};
+
 exports.queryMethodNoParameters = function (req, res) {
     exports.queryMethod(req, res);
 };
@@ -233,9 +284,12 @@ exports.queryMethod = function (req, res) {
     return new Promise((resolve, reject) => {
         initResponse();
 
-        if(!isValidToken(req))
+        if (!exports.isValidToken(req)) {
+            response.err.push("Error: token invalid");
             resolve(res.json(response));
+        }
 
+        let queryResponse = '';
         response.token = req.headers.authorization;
 
         var userName = req.params.userId;
@@ -247,6 +301,7 @@ exports.queryMethod = function (req, res) {
 
         fabric_client = new Fabric_Client();
         var member_user = null;
+
 
 // setup the fabric network
 
@@ -272,6 +327,7 @@ exports.queryMethod = function (req, res) {
                     response.err.push("Failed with ", query_responses[0].message);
                 } else {
                     console.log("Response is ", query_responses[0].toString());
+                    queryResponse = query_responses[0].toString();
                     response.data.push(query_responses[0].toString());
                 }
             } else {
@@ -280,8 +336,8 @@ exports.queryMethod = function (req, res) {
         }).catch((err) => {
             response.err.push('Failed to query successfully :: ' + err);
         }).then(() => {
-            if(req.params.returnData){
-                resolve(true);
+            if (req.params.returnData) {
+                resolve(queryResponse);
                 return;
             }
 
@@ -294,7 +350,7 @@ exports.queryMethod = function (req, res) {
 exports.invoke = function (req, res) {
     return new Promise((resolve, reject) => {
 
-        if(!isValidToken(req))
+        if (!exports.isValidToken(req))
             resolve(res.json(response));
 
         var userName = req.params.userId;
@@ -307,7 +363,7 @@ exports.invoke = function (req, res) {
         console.log("CREATE CLIENT: " + req.params.createNewFabricClient);
 
 
-        if(req.params.createNewFabricClient === null || req.params.createNewFabricClient){
+        if (req.params.createNewFabricClient === null || req.params.createNewFabricClient) {
             initResponse();
             console.log('inside');
             fabric_client = new Fabric_Client();
@@ -330,11 +386,11 @@ exports.invoke = function (req, res) {
 
         userFromPersistence.then((user_from_store) => {
             if (user_from_store && user_from_store.isEnrolled()) {
-                console.log('Successfully loaded '+ userName+' from persistence');
+                console.log('Successfully loaded ' + userName + ' from persistence');
                 member_user = user_from_store;
             } else {
-                response.err.push('Failed to get '+ userName+'.... run registerUser.js');
-                throw new Error('Failed to get '+ userName+'.... run registerUser.js');
+                response.err.push('Failed to get ' + userName + '.... run registerUser.js');
+                throw new Error('Failed to get ' + userName + '.... run registerUser.js');
             }
 
             // get a transaction id object based on the current user assigned to fabric client
@@ -402,7 +458,7 @@ exports.invoke = function (req, res) {
                 let txPromise = new Promise((resolve, reject) => {
                     let handle = setTimeout(() => {
                         event_hub.disconnect();
-                        resolve({event_status : 'TIMEOUT'}); //we could use reject(new Error('Trnasaction did not complete within 30 seconds'));
+                        resolve({event_status: 'TIMEOUT'}); //we could use reject(new Error('Trnasaction did not complete within 30 seconds'));
                     }, 3000);
                     event_hub.connect();
                     event_hub.registerTxEvent(transaction_id_string, (tx, code) => {
@@ -413,7 +469,7 @@ exports.invoke = function (req, res) {
                         event_hub.disconnect();
 
                         // now let the application know what happened
-                        var return_status = {event_status : code, tx_id : transaction_id_string};
+                        var return_status = {event_status: code, tx_id: transaction_id_string};
                         if (code !== 'VALID') {
                             console.error('The transaction was invalid, code = ' + code);
                             response.messages.push('The transaction was invalid, code = ' + code);
@@ -425,7 +481,7 @@ exports.invoke = function (req, res) {
                         }
                     }, (err) => {
                         //this is the callback if something goes wrong with the event registration or processing
-                        reject(new Error('There was a problem with the eventhub ::'+err));
+                        reject(new Error('There was a problem with the eventhub ::' + err));
                     });
                 });
                 promises.push(txPromise);
@@ -447,24 +503,79 @@ exports.invoke = function (req, res) {
                 console.error('Failed to order the transaction. Error code: ' + response.status);
             }
 
-            if(results && results[1] && results[1].event_status === 'VALID') {
+            if (results && results[1] && results[1].event_status === 'VALID') {
                 console.log('Successfully committed the change to the ledger by the peer');
                 response.messages.push('Successfully committed the change to the ledger by the peer');
             } else {
-                console.log('Transaction failed to be committed to the ledger due to ::'+results[1].event_status);
-                response.err.push('Transaction failed to be committed to the ledger due to ::'+results[1].event_status);
+                console.log('Transaction failed to be committed to the ledger due to ::' + results[1].event_status);
+                response.err.push('Transaction failed to be committed to the ledger due to ::' + results[1].event_status);
             }
         }).catch((err) => {
             console.error('Failed to invoke successfully :: ' + err);
             response.err.push('Failed to invoke successfully :: ' + err);
         }).then(() => {
-            if(req.doNotResolve){
+            if (req.doNotResolve) {
                 resolve(true);
                 return;
             }
 
             resolve(res.json(response));
         });
+    });
+};
+
+exports.updateData = function (req, res) {
+    return new Promise((resolve, reject) => {
+        initResponse();
+        let encodedData = req.params.encodedData;
+        let decoded = atob(encodedData);
+        let jsonData = JSON.parse(decoded);
+        let userId = jsonData.invoker;
+
+        if (!exports.isValidToken(req)) {
+            resolve(res.json(response));
+            return;
+        }
+
+        getUserFromPersistence(false, userId, false).then((user) => {
+            if (user === null) {
+                response.err.push('User not found');
+                resolve(res.json(response));
+                throw new Error('User not found');
+            }
+            let publicKey = user._identity._publicKey._key.pubKeyHex;
+            publicKeyHashed = user.getCryptoSuite().hash(publicKey, 'SHA2');
+
+            // Instead of querying for permission we could do the check in the chaincode and return
+            req.params.userId = userId;
+            req.params.functionName = 'queryPermission';
+            req.params.parameters = publicKeyHashed;
+            req.params.createNewFabricClient = false;
+            req.params.returnData = true;
+            return exports.queryMethod(req, res)
+        }).then((permission) => {
+            if (!permission) {
+                response.err.push("Actor ID not found!");
+                resolve(res.json(response));
+                return;
+            }
+
+            let jsonResponse = JSON.parse(permission);
+            let subjects = jsonResponse.subject;
+
+            for (let i = 0; i < subjects.length; i++) {
+                if (subjects[i].id === jsonData.cpr && subjects[i].write === 'true') {
+                    dbCtrl.updateData(jsonData).then(() => {
+                        resolve(res.json(response));
+                    });
+                    return;
+                }
+            }
+
+            response.err.push("Error no write permission for: " + jsonData.cpr);
+            resolve(res.json(response));
+        });
+
     });
 };
 
@@ -534,11 +645,12 @@ let initResponse = function () {
 };
 
 // generate the JWT
-function generateToken(req){
+function generateToken(req) {
     let token = jwt.sign({
-        auth:  publicKeyHashed,
+        auth: publicKeyHashed,
         agent: req.headers['user-agent'],
-        exp:   Math.floor(new Date().getTime()/1000) + 7*24*60*60}, secret);
+        exp: Math.floor(new Date().getTime() / 1000) + 7 * 24 * 60 * 60
+    }, secret);
 
     return token;
 }
@@ -551,17 +663,17 @@ function validateToken(req) {
     } catch (e) {
         return false;
     }
-    if(!decoded || decoded.auth !== publicKeyHashed) {
+    if (!decoded || decoded.auth !== publicKeyHashed) {
         return false;
     } else {
         return true;
     }
 }
 
-function isValidToken(req) {
+exports.isValidToken = function (req) {
     if (validateToken(req))
         return true;
 
     response.err.push("Authentication failed. Token invalid or expired.")
     return false;
-}
+};
