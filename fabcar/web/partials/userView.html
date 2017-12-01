@@ -53,7 +53,8 @@
                                     <i class="fa fa-pencil" ng-class="{'gray' : subject.write == 'false'}"
                                        aria-hidden="true"></i>
                                     <i class="fa fa-book" aria-hidden="true"></i>
-                                    <i class="fa fa-handshake-o" ng-class="{'gray' : subject.granted == 'false'}" aria-hidden="true"></i>
+                                    <i class="fa fa-handshake-o" ng-class="{'gray' : subject.granted == 'false'}"
+                                       aria-hidden="true"></i>
                                 </span>
                         </div>
                         <ul ng-if="subjects.length == 0" class="list-group">
@@ -80,11 +81,13 @@
                         <!--</li>-->
                         <li class="right" role="presentation" ng-class="{'active': loginState=='grantPermission'}"
                             ng-click="loginState = 'grantPermission'">
-                            <a href="#"><i class="fa fa-user-plus" style="margin-right: 5px;" aria-hidden="true"></i>Grant permission</a>
+                            <a href="#"><i class="fa fa-user-plus" style="margin-right: 5px;" aria-hidden="true"></i>Grant
+                                permission</a>
                         </li>
                         <li class="right" role="presentation" ng-class="{'active': loginState=='revokePermission'}"
                             ng-click="loginState = 'revokePermission'">
-                            <a href="#"><i class="fa fa-user-times" style="margin-right: 5px;" aria-hidden="true"></i>Revoke permission</a>
+                            <a href="#"><i class="fa fa-user-times" style="margin-right: 5px;" aria-hidden="true"></i>Revoke
+                                permission</a>
                         </li>
                     </ul>
                 </div>
@@ -162,37 +165,71 @@
                 <!--Grant permission-->
                 <div ng-if="loginState ==='grantPermission'">
                     <div class="container">
-                        <div class="form-group col-sm-7">
-                            <label>Actor medical ID:</label>
-                            <input type="input" class="form-control" placeholder="Medical ID of reciever" ng-model="permissionReciever" ng-disabled="selectedPatient.granted =='true'">
+                        <div ng-if="!selectedPatient">
+                            <div ng-include="'partials/warning.html'"></div>
                         </div>
 
-                        <div class="form-group col-sm-12 ">
-                            <label>Permission type:</label>
-                            <label class="radio-inline">
-                                <input type="radio" ng-model="permissionType" value="read" name="optradio" ng-disabled="selectedPatient.granted =='true'">
-                                Read
-                            </label>
-                            <label class="radio-inline">
-                                <input type="radio" ng-model="permissionType" value="write" name="optradio" ng-disabled="selectedPatient.write == 'false' || selectedPatient.granted =='true'">
-                                Write
-                            </label>
-                        </div>
+                        <div ng-if="selectedPatient">
+                            <div class="form-group col-sm-7">
+                                <label>Actor medical ID:</label>
+                                <input type="input" class="form-control" placeholder="Medical ID of reciever"
+                                       ng-model="permissionReciever" ng-disabled="selectedPatient.granted =='true'">
+                            </div>
 
-                        <div class="col-sm-6">
-                            <!--Only can grant if I own it-->
-                            <button ng-click="grantPermission(patientData)" style=""
-                                    ng-disabled="selectedPatient.granted =='true'" class="btn btn-default"><i
-                                    class="fa fa-handshake-o" style="margin-right: 5px" aria-hidden="true"></i>
-                                Grant permission
-                            </button>
+                            <div class="form-group col-sm-12 ">
+                                <label>Permission type:</label>
+                                <label class="radio-inline">
+                                    <input type="radio" ng-model="writePermission" value="false" name="optradio"
+                                           ng-disabled="selectedPatient.granted =='true'">
+                                    Read
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" ng-model="writePermission" value="true" name="optradio"
+                                           ng-disabled="selectedPatient.write == 'false' || selectedPatient.granted =='true'">
+                                    Write
+                                </label>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <!--Only can grant if I own it-->
+                                <button ng-click="grantPermission(patientData)" style=""
+                                        ng-disabled="selectedPatient.granted =='true'" class="btn btn-default"><i
+                                        class="fa fa-handshake-o" style="margin-right: 5px" aria-hidden="true"></i>
+                                    Grant permission
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!--Revoke permission-->
                 <div ng-if="loginState ==='revokePermission'">
-                    <div ng-include="'partials/warning.html'"></div>
+                    <div ng-if="granted.length === 0">
+                        <div ng-include="'partials/warning.html'"></div>
+                    </div>
+                    <div ng-if="granted.length > 0">
+                        <table class="table table-bordered">
+                            <thead>
+                            <tr>
+                                <th>Medical ID</th>
+                                <th>Permission type</th>
+                                <th>Action</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr ng-repeat="grant in granted | filter:{'patientId':  selectedPatient.id}:true">
+                                <td style="vertical-align: inherit">{{ grant.receiver }}</td>
+                                <td style="vertical-align: inherit"><i style="margin-right: 5px;" ng-class="{'fa fa-pencil': grant.permissionType == 'write', 'fa fa-book': grant.permissionType == 'read'}"></i>{{ grant.permissionType }}</td>
+                                <td>
+                                    <button ng-click="revokePermission(selectedPatient.id, grant.receiver, grant.permissionType)" style=""
+                                            class="btn btn-default"><i class="fa fa-user-times" style="margin-right: 5px"
+                                                                       aria-hidden="true"></i>Revoke
+                                    </button>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
 

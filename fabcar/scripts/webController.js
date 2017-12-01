@@ -23,7 +23,7 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
         $scope.parameters = '';
 
         $scope.permissionReciever = '';
-        $scope.permissionType = 'read';
+        $scope.writePermission = 'false';
 
         $scope.availableFunctions = [];
         $scope.selectedFunction = '';
@@ -64,17 +64,10 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
                 let parsedData = JSON.parse(data);
                 $scope.userName = parsedData.actor;
                 $scope.subjects = parsedData.subject;
+                $scope.granted = parsedData.granted;
 
                 $scope.loggedIn = true;
                 $scope.popUpMessage("Login successful!", 'success');
-
-                // var getMethods = getData('/query/' + userName + "/getAvailFunctions", "Getting available functions...");
-                //
-                // getMethods.then((data) => {
-                //     $scope.availableFunctions = JSON.parse(data);
-                //     $scope.selectedFunction = $scope.availableFunctions[0];
-                //     $scope.loggedIn = true;
-                // });
             }).catch(() => {
                 $scope.loggedIn = false;
                 logs.addMessage("Error: Loging in of " + userName + " failed!");
@@ -129,12 +122,25 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
         };
 
         $scope.grantPermission = function (patientData) {
-            let grantPermission = getData('/grantPermission/' + this.userName + '/' + patientData.cpr + '/' + this.permissionType + '/' + this.permissionReciever);
+            let grantPermission = getData('/grantPermission/' + this.userName + '/' + patientData.cpr + '/' + this.writePermission + '/' + this.permissionReciever);
 
             grantPermission.then(() => {
                 $scope.popUpMessage("Permission granted!", 'success');
-            }).catch(() => {
-                $scope.popUpMessage("Error occured while trying to grant permission!", 'danger');
+                $scope.granted.push({patientId: patientData.cpr, permissionType: (this.writePermission ? 'write' : 'read'), receiver: this.permissionReciever});
+            }).catch((err) => {
+                $scope.popUpMessage(err[0], 'danger');
+            });
+        };
+
+        $scope.revokePermission = function (selectedPatientId, receiver, permissionType) {
+            let grantPermission = getData('/revokePermission/' + this.userName + '/' + selectedPatientId + '/' + permissionType + '/' + receiver);
+
+            grantPermission.then(() => {
+                $scope.popUpMessage("Permission revoked!", 'success');
+                let index = $scope.granted.indexOf({patientId: selectedPatientId, permissionType: permissionType, receiver: receiver});
+                $scope.granted.splice(index,1);
+            }).catch((err) => {
+                $scope.popUpMessage(err[0], 'danger');
             });
         };
 
@@ -162,7 +168,7 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
                             logs.addListOfMessages(err);
                             $scope.loading = false;
                             $scope.popUpMessage("Error: " + err, 'danger');
-                            reject();
+                            reject(err);
                             return;
                         }
 

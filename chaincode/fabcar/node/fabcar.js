@@ -162,25 +162,72 @@ let Chaincode = class {
             actor: args[1],
             password: args[2],
             subject: subjects,
+            granted: []
         };
 
         await stub.putState(args[0], Buffer.from(JSON.stringify(permission)));
         console.info('============= END : Create Permission ===========');
     }
 
-
-    async transferPermission(stub, args) {
-        console.info('============= START : changeCarowner ===========');
-        if (args.length != 2) {
-            throw new Error('Incorrect number of arguments. Expecting 2');
+    async grantPermission(stub, args) {
+        if (args.length != 4) {
+            throw new Error('Grant permission: Incorrect number of arguments.');
         }
 
-        let carAsBytes = await stub.getState(args[0]);
-        let car = JSON.parse(carAsBytes);
-        car.owner = args[1];
+        let fromUserId = args[0];
+        let toUserId = args[1];
+        let patientId = args[2];
+        let canWrite = args[3];
 
-        await stub.putState(args[0], Buffer.from(JSON.stringify(car)));
-        console.info('============= END : changeCarowner ===========');
+        let fromUser = JSON.parse(await stub.getState(fromUserId));
+        let toUser = JSON.parse(await stub.getState(toUserId));
+
+        if(!fromUser || !toUser){
+            throw new Error('One of the user were not found!');
+        }
+
+        for(let i = 0; i < toUser.subject.length; i++){
+            if(toUser.subject[i].id === patientId)
+                throw new Error('Patient already assigned to ' + toUserId);
+        }
+
+        fromUser.granted.push({receiver: toUser.actor, patientId: patientId, permissionType: (canWrite === 'true' ? 'write' : 'read')});
+        toUser.subject.push({id: patientId, write: canWrite, granted: 'true'});
+
+        await stub.putState(fromUserId, Buffer.from(JSON.stringify(fromUser)));
+        await stub.putState(toUserId, Buffer.from(JSON.stringify(toUser)));
+    }
+
+    async revokePermission(stub, args) {
+        if (args.length != 4) {
+            throw new Error('Revoke permission: Incorrect number of arguments.');
+        }
+
+        let fromUserId = args[0];
+        let toUserId = args[1];
+        let patientId = args[2];
+        let permissionType = args[3];
+
+        let fromUser = JSON.parse(await stub.getState(fromUserId));
+        let toUser = JSON.parse(await stub.getState(toUserId));
+
+
+        for(let i = 0; i < toUser.subject.length; i++){
+            if(toUser.subject[i].id === patientId){
+                toUser.subject.splice(i, 1);
+                break;
+            }
+        }
+
+        for(let m = 0; m < fromUser.granted.length; m++){
+            if(fromUser.granted[m].receiver === toUser.actor && fromUser.granted[m].permissionType === permissionType && fromUser.granted[m].patientId === patientId){
+                fromUser.granted.splice(m, 1);
+                break;
+            }
+        }
+
+        await stub.putState(toUserId, Buffer.from(JSON.stringify(toUser)));
+        await stub.putState(fromUserId, Buffer.from(JSON.stringify(fromUser)));
     }
 };
 

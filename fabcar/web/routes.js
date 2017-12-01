@@ -32,4 +32,7 @@ module.exports = function(app) {
 
     app.route('/grantPermission/:userId/:patientId/:permissionType/:reciever')
         .get(svCtrl.grantPermission);
+
+    app.route('/revokePermission/:userId/:patientId/:permissionType/:reciever')
+        .get(svCtrl.revokePermission);
 };

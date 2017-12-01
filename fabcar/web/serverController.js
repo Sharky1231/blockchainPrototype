@@ -36,7 +36,12 @@ exports.showIndex = function (req, res) {
 
 exports.enrollAdmin = function (req, res) {
     return new Promise((resolve, reject) => {
-        initResponse();
+        initResponse(req);
+
+        if (validateToken(req)) {
+            resolve(res.json(response));
+            return;
+        }
 
         let admin_user = null;
 
@@ -125,7 +130,7 @@ exports.enrollAdmin = function (req, res) {
 
 exports.enrollUser = function (req, res) {
     return new Promise((resolve, reject) => {
-        initResponse();
+        initResponse(req);
 
         let userName = req.params.userId;
         let password = req.params.hashedPass;
@@ -221,7 +226,7 @@ exports.enrollUser = function (req, res) {
 
 exports.loginUser = function (req, res) {
     return new Promise((resolve, reject) => {
-        initResponse();
+        initResponse(req);
 
         getUserFromPersistence(false, req.params.userId, false).then((user) => {
             if (user === null) {
@@ -250,8 +255,18 @@ exports.loginUser = function (req, res) {
 };
 
 exports.grantPermission = function (req, res) {
+    req.params.functionName = "grantPermission";
+    invokePermission(req, res);
+};
+
+exports.revokePermission = function (req, res) {
+    req.params.functionName = "revokePermission";
+    invokePermission(req, res);
+};
+
+let invokePermission = function(req, res){
     return new Promise((resolve, reject) => {
-        initResponse();
+        initResponse(req);
 
         if (!exports.isValidToken(req)) {
             response.err.push("Error: token invalid");
@@ -264,15 +279,42 @@ exports.grantPermission = function (req, res) {
         let permissionType = req.params.permissionType;
         let reciever = req.params.reciever;
 
-        // get user from context
-        // execute method to grant permission
-            // it will check on blockchain if I have that patient, and is not granted
-            // add patient to my grantedList
-            // add patient to reciever list, with granted set to true
-        // return successfuly
+        let userPublicHash = '';
+        let recieverPublicHash = '';
 
-        resolve(res.json(response));
+        // Get hashed public key of the user granting permission
+        getUserFromPersistence(false, req.params.userId, false).then((user) => {
+            let publicKey = user._identity._publicKey._key.pubKeyHex;
+            userPublicHash = user.getCryptoSuite().hash(publicKey, 'SHA2');
 
+            // Get hashed public key of the reciever
+            return getUserFromPersistence(false, reciever, false)
+        }).then((recieverData) => {
+
+            if(recieverData === null){
+                response.err.push("Receiver '"+reciever+ "' not found!");
+                resolve(res.json(response));
+                return;
+            }
+
+            let publicKey = recieverData._identity._publicKey._key.pubKeyHex;
+            recieverPublicHash = recieverData.getCryptoSuite().hash(publicKey, 'SHA2');
+
+            // Invoke grant permission method on chaincode
+            req.params.userId = userId;
+            req.params.parameters = userPublicHash + ',' + recieverPublicHash + ',' + patientId + ',' + permissionType;
+            req.params.createNewFabricClient = false;
+            req.doNotResolve = true;
+            return exports.invoke(req, res);
+        }).then((invokedSuccesfuly) => {
+            if(invokedSuccesfuly)
+                response.data.push("Permission of '" + patientId + "'successfully granted to: " + reciever);
+            else
+                response.err.push(patientId + "'is already assigned to: " + reciever);
+
+            resolve(res.json(response));
+            return;
+        });
     });
 };
 
@@ -282,7 +324,7 @@ exports.queryMethodNoParameters = function (req, res) {
 
 exports.queryMethod = function (req, res) {
     return new Promise((resolve, reject) => {
-        initResponse();
+        initResponse(req);
 
         if (!exports.isValidToken(req)) {
             response.err.push("Error: token invalid");
@@ -364,21 +406,29 @@ exports.invoke = function (req, res) {
 
 
         if (req.params.createNewFabricClient === null || req.params.createNewFabricClient) {
-            initResponse();
+            initResponse(req);
             console.log('inside');
             fabric_client = new Fabric_Client();
         }
 
 
+        let channel = '';
+        let order = fabric_client.newOrderer('grpc://localhost:7050');
         // setup the fabric network
-        var channel = fabric_client.newChannel('mychannel');
-        var peer = fabric_client.newPeer('grpc://localhost:7051');
-        channel.addPeer(peer);
-        var order = fabric_client.newOrderer('grpc://localhost:7050')
-        channel.addOrderer(order);
 
-        response.messages.push("All initialize");
-//
+        try {
+            channel = fabric_client.getChannel('mychannel');
+        }
+        catch(err){
+            channel = fabric_client.newChannel('mychannel');
+            let peer = fabric_client.newPeer('grpc://localhost:7051');
+            channel.addPeer(peer);
+        }
+
+        if(channel.getOrderers().length === 0)
+            channel.addOrderer(order);
+
+        response.messages.push("All initialized");
         var member_user = null;
         var tx_id = null;
 
@@ -490,6 +540,7 @@ exports.invoke = function (req, res) {
             } else {
                 console.error('Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...');
                 response.err.push('Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...');
+                resolve(false);
                 throw new Error('Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...');
             }
         }).then((results) => {
@@ -526,7 +577,8 @@ exports.invoke = function (req, res) {
 
 exports.updateData = function (req, res) {
     return new Promise((resolve, reject) => {
-        initResponse();
+        initResponse(req);
+
         let encodedData = req.params.encodedData;
         let decoded = atob(encodedData);
         let jsonData = JSON.parse(decoded);
@@ -635,12 +687,12 @@ let getUserFromPersistence = function (withTlsOptions, userName, initCAclient) {
     });
 };
 
-let initResponse = function () {
+let initResponse = function (req) {
     response = {
         data: [],
         messages: [],
         err: [],
-        token: ''
+        token: req.headers.authorization
     };
 };
 
