@@ -9,7 +9,7 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
         // States
         $scope.state = 'user';
         $scope.loginState = 'personal';
-        $scope.loggedIn = true;
+        $scope.loggedIn = false;
         $scope.selectedPatient = '';
 
         // Info messages
@@ -30,6 +30,10 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
         $scope.functionTypes = ['Query', 'Invoke'];
         $scope.functionType = $scope.functionTypes[0];
 
+        // Tests
+        $scope.userNames = [];
+
+
         $scope.registerAdmin = function () {
             let enrollAdmin = getData('/enrollAdmin', "Enrolling admin...");
             enrollAdmin.then(() => {
@@ -42,12 +46,14 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
             });
         };
 
-        $scope.registerUser = function () {
-            let hashedPass = sha256.convertToSHA256(this.password);
-            let userName = this.userName;
+        $scope.registerUser = function (userName, password) {
+            let hashedPass = sha256.convertToSHA256(password);
+            let start = new Date();
             let registerUser = getData('/enrollUser/' + userName + '/' + hashedPass, "Registering '" + userName + "'...");
 
             registerUser.then(() => {
+                let end = new Date();
+                console.log("Registration took: " + (end - start));
                 return $scope.logIn(userName, this.password);
             }).catch(() => {
                 $scope.loggedIn = false;
@@ -59,12 +65,16 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
         $scope.logIn = function (userName, password) {
             let hashedPass = sha256.convertToSHA256(password);
             let login = getData('/login/' + userName + '/' + hashedPass, "Logging in '" + userName + "'...");
+            let start = new Date();
 
             login.then((data) => {
                 let parsedData = JSON.parse(data);
                 $scope.userName = parsedData.actor;
                 $scope.subjects = parsedData.subject;
                 $scope.granted = parsedData.granted;
+
+                let end = new Date();
+                console.log("Login took: " + (end - start));
 
                 $scope.loggedIn = true;
                 $scope.popUpMessage("Login successful!", 'success');
@@ -110,40 +120,105 @@ appname.controller('mainCtrl', ['$scope', '$http', '$window', '$timeout', '$q', 
             });
         };
 
-        $scope.saveData = function (patientData) {
-            patientData['invoker'] = $scope.userName;
+        $scope.saveData = function (userName, patientData) {
+            patientData['invoker'] = userName;
             let encodedData = btoa(JSON.stringify(patientData));
+            let start = new Date();
 
             let updateData = getData('/updateData/' + encodedData, 'Updating data for: ' + patientData.cpr);
 
             updateData.then(() => {
+                let end = new Date();
+                console.log("Update data took: " + (end - start));
                 $scope.popUpMessage("Data successfully updated", 'success');
             });
         };
 
-        $scope.grantPermission = function (patientData) {
-            let grantPermission = getData('/grantPermission/' + this.userName + '/' + patientData.cpr + '/' + this.writePermission + '/' + this.permissionReciever);
+        $scope.grantPermission = function (cpr, userName, permissionType, reciever) {
+            let start = new Date();
+            let grantPermission = getData('/grantPermission/' + userName + '/' + cpr + '/' + permissionType + '/' + reciever);
 
             grantPermission.then(() => {
+                let end = new Date();
+                console.log("Grant permission took: " + (end - start));
                 $scope.popUpMessage("Permission granted!", 'success');
-                $scope.granted.push({patientId: patientData.cpr, permissionType: (this.writePermission ? 'write' : 'read'), receiver: this.permissionReciever});
+                $scope.granted.push({
+                    patientId: cpr,
+                    permissionType: (permissionType ? 'write' : 'read'),
+                    receiver: reciever
+                });
             }).catch((err) => {
                 $scope.popUpMessage(err[0], 'danger');
             });
         };
 
-        $scope.revokePermission = function (selectedPatientId, receiver, permissionType) {
-            let grantPermission = getData('/revokePermission/' + this.userName + '/' + selectedPatientId + '/' + permissionType + '/' + receiver);
+        $scope.revokePermission = function (selectedPatientId, receiver, permissionType, userName) {
+            let start = new Date();
+            let grantPermission = getData('/revokePermission/' + userName + '/' + selectedPatientId + '/' + permissionType + '/' + receiver);
 
             grantPermission.then(() => {
+                let end = new Date();
+                console.log("Revoke took: " + (end - start));
                 $scope.popUpMessage("Permission revoked!", 'success');
-                let index = $scope.granted.indexOf({patientId: selectedPatientId, permissionType: permissionType, receiver: receiver});
-                $scope.granted.splice(index,1);
+                let index = $scope.granted.indexOf({
+                    patientId: selectedPatientId,
+                    permissionType: permissionType,
+                    receiver: receiver
+                });
+                $scope.granted.splice(index, 1);
             }).catch((err) => {
                 $scope.popUpMessage(err[0], 'danger');
             });
         };
 
+        // $scope.runTests = function () {
+        //     $scope.registerLoginTests();
+        //
+        //     $timeout(function(){
+        //         $scope.grantPermissionTests();
+        //     }, 25000);
+        // };
+
+        $scope.registerLoginTests = function () {
+            console.log("Starting REG/LOG tests");
+            for (let i = 0; i < 50; i++) {
+                let data = i + 'test' + Date.now();
+                $scope.userNames.push({username: data, password: data});
+                $scope.registerUser(data, data);
+            }
+        };
+
+        $scope.grantPermissionTests = function () {
+            console.log('Starting GRANT tests');
+
+            for (let i = 0; i < 50; i++) {
+                $scope.grantPermission('1403981125', '113', 'true',  $scope.userNames[i].username);
+            }
+        };
+
+        $scope.revokePermissionTests = function () {
+            console.log('Starting REVOKE tests');
+
+            for (let i = 0; i < 50; i++) {
+                $scope.revokePermission('1403981125', '115', 'read', $scope.userNames[i].username);
+            }
+        };
+
+        $scope.updateTests = function () {
+            console.log('Starting UPDATE tests');
+            let patientData = {};
+            patientData.cpr = '1403981125';
+            patientData.address = 'Kattesund 14, Vejle';
+            patientData.email = 'troll@lol.com';
+            patientData.name = 'Pete';
+            patientData.dateOfBirth = '26/10/1992';
+
+            for (let i = 0; i < 50; i++) {
+                $scope.saveData($scope.userNames[i].username, patientData);
+            }
+        };
+
+        // $scope.runTests();
 
         function getData(path, introMessage) {
             // perform some asynchronous operation, resolve or reject the promise when appropriate.

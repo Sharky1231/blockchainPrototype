@@ -8,6 +8,7 @@ let os = require('os');
 var atob = require('atob');
 let jwt = require('jsonwebtoken');
 let dbCtrl = require('./databaseController');
+var fs = require('fs');
 
 const store_path = path.join(__dirname, 'hfc-key-store');
 let fabric_ca_client = null;
@@ -16,12 +17,6 @@ let fabric_client = new Fabric_Client();
 let secret = '1s5aBmdX9GU7cvChcrwrzTHcvfhjmbQWEEhguiiNmdjchvkeoora';
 let publicKeyHashed = '';
 
-// var fabric_client = new Fabric_Client();
-// var fabric_ca_client = null;
-// var admin_user = null;
-// var member_user = null;
-// var store_path = path.join(__dirname, 'hfc-key-store');
-// var tx_id = null;
 
 let response = {
     data: [],
@@ -135,6 +130,7 @@ exports.enrollUser = function (req, res) {
         let userName = req.params.userId;
         let password = req.params.hashedPass;
 
+
         fabric_client = new Fabric_Client();
         fabric_ca_client = null;
         let admin_user = null;
@@ -153,6 +149,7 @@ exports.enrollUser = function (req, res) {
                 response.data.push(actor);
 
 
+            let start = new Date();
             let userFromPersistence = getUserFromPersistence(false, 'admin', true);
 
             userFromPersistence.then((user_from_store) => {
@@ -214,10 +211,14 @@ exports.enrollUser = function (req, res) {
                 req.headers.authorization = generateToken(req);
                 return exports.invoke(req, res);
             }).then(() => {
+                let end = new Date();
                 if (req.doNotResolve) {
                     resolve(true);
                     return;
                 }
+
+                logTime('registration', (end - start));
+
                 resolve(res.json(response));
             })
         });
@@ -228,6 +229,7 @@ exports.loginUser = function (req, res) {
     return new Promise((resolve, reject) => {
         initResponse(req);
 
+        let start = new Date();
         getUserFromPersistence(false, req.params.userId, false).then((user) => {
             if (user === null) {
                 throw new Error('User not found');
@@ -244,6 +246,8 @@ exports.loginUser = function (req, res) {
             req.params.returnData = true;
             return exports.queryMethod(req, res)
         }).then(() => {
+            let end = new Date();
+            logTime('login', (end - start));
             response.token = generateToken(req);
             resolve(res.json(response));
         }).catch((err) => {
@@ -282,6 +286,8 @@ let invokePermission = function(req, res){
         let userPublicHash = '';
         let recieverPublicHash = '';
 
+        let start = new Date();
+
         // Get hashed public key of the user granting permission
         getUserFromPersistence(false, req.params.userId, false).then((user) => {
             let publicKey = user._identity._publicKey._key.pubKeyHex;
@@ -307,11 +313,18 @@ let invokePermission = function(req, res){
             req.doNotResolve = true;
             return exports.invoke(req, res);
         }).then((invokedSuccesfuly) => {
+            let end = new Date();
+
+            logTime(req.params.functionName, (end - start));
             if(invokedSuccesfuly)
                 response.data.push("Permission of '" + patientId + "'successfully granted to: " + reciever);
             else
-                response.err.push(patientId + "'is already assigned to: " + reciever);
+                response.err.push("Granting permission to " + reciever + " failed.");
 
+            resolve(res.json(response));
+            return;
+        }).catch(function(err){
+            response.err.push(err);
             resolve(res.json(response));
             return;
         });
@@ -347,6 +360,7 @@ exports.queryMethod = function (req, res) {
 
 // setup the fabric network
 
+        let start = new Date();
         let userFromPersistence = getUserFromPersistence(false, userName, false);
 
         userFromPersistence.then((user_from_store) => {
@@ -357,6 +371,7 @@ exports.queryMethod = function (req, res) {
                 response.err.push('Failed to get ' + userName + '.... run registerUser.js');
                 throw new Error('Failed to get ' + userName + '.... run registerUser.js');
             }
+
 
             return queryChainCode(fabric_client, functionName, parameters);
 
@@ -378,6 +393,9 @@ exports.queryMethod = function (req, res) {
         }).catch((err) => {
             response.err.push('Failed to query successfully :: ' + err);
         }).then(() => {
+            let end = new Date();
+            logTime('query', (end - start));
+
             if (req.params.returnData) {
                 resolve(queryResponse);
                 return;
@@ -432,6 +450,7 @@ exports.invoke = function (req, res) {
         var member_user = null;
         var tx_id = null;
 
+            let start = new Date();
         var userFromPersistence = getUserFromPersistence(false, userName, false);
 
         userFromPersistence.then((user_from_store) => {
@@ -443,14 +462,12 @@ exports.invoke = function (req, res) {
                 throw new Error('Failed to get ' + userName + '.... run registerUser.js');
             }
 
+
             // get a transaction id object based on the current user assigned to fabric client
             tx_id = fabric_client.newTransactionID();
             console.log("Assigning transaction_id: ", tx_id._transaction_id);
             response.messages.push("Assigning transaction_id: ", tx_id._transaction_id);
 
-            console.log('here');
-            // createCar chaincode function - requires 5 args, ex: args: ['CAR12', 'Honda', 'Accord', 'Black', 'Tom'],
-            // changeCarOwner chaincode function - requires 2 args , ex: args: ['CAR10', 'Barry'],
             // must send the proposal to endorsing peers
             var request = {
                 //targets: let default to the peer assigned to the client
@@ -565,6 +582,8 @@ exports.invoke = function (req, res) {
             console.error('Failed to invoke successfully :: ' + err);
             response.err.push('Failed to invoke successfully :: ' + err);
         }).then(() => {
+            let end = new Date();
+            logTime('invoke', (end - start));
             if (req.doNotResolve) {
                 resolve(true);
                 return;
@@ -589,6 +608,8 @@ exports.updateData = function (req, res) {
             return;
         }
 
+        let start = new Date();
+
         getUserFromPersistence(false, userId, false).then((user) => {
             if (user === null) {
                 response.err.push('User not found');
@@ -606,6 +627,11 @@ exports.updateData = function (req, res) {
             req.params.returnData = true;
             return exports.queryMethod(req, res)
         }).then((permission) => {
+
+            let end = new Date();
+
+            logTime('update', (end - start));
+
             if (!permission) {
                 response.err.push("Actor ID not found!");
                 resolve(res.json(response));
@@ -687,6 +713,28 @@ let getUserFromPersistence = function (withTlsOptions, userName, initCAclient) {
     });
 };
 
+let logTime = function(fileName, time){
+    console.log(fileName + " took: " + time);
+    let file = __dirname + '/testResults/'+fileName+'.txt';
+
+    if(fs.existsSync(file)){
+        fs.appendFile(file, time+",", function (err) {
+            if (err) throw err;
+            console.log('Saved!');
+        });
+    }
+
+    else {
+        fs.writeFile(file, time+",", (err) => {
+            // throws an error, you could also catch it here
+            if (err) throw err;
+
+            // success case, the file was saved
+            console.log(fileName + ' saved!');
+        });
+    }
+};
+
 let initResponse = function (req) {
     response = {
         data: [],
@@ -723,9 +771,10 @@ function validateToken(req) {
 }
 
 exports.isValidToken = function (req) {
+    return true;
     if (validateToken(req))
         return true;
 
-    response.err.push("Authentication failed. Token invalid or expired.")
+    response.err.push("Authentication failed. Token invalid or expired.");
     return false;
 };

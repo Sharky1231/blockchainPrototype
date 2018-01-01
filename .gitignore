@@ -41,4 +41,6 @@ npm-debug.log
 chaincode/chaincode_example02
 basic-network
 fabcar/web/hfc-key-store
+bc-command.txt
+fabcar/web/testResults
 

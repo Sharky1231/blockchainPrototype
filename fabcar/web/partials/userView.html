@@ -16,7 +16,7 @@
             <input type="password" class="form-control" ng-model="password" placeholder="Password"/>
         </div>
         <div class="buttonsRight">
-            <button ng-click="registerUser()"
+            <button ng-click="registerUser(userName, password)"
                     class="btn btn-default">Register
             </button>
             <button ng-click="logIn(userName, password)"
@@ -126,7 +126,7 @@
                     <div ng-if="!patientData" ng-include="'partials/warning.html'"></div>
 
                     <div class="col-sm-12">
-                        <button ng-click="saveData(patientData)" style="" ng-disabled="selectedPatient.write == 'false'"
+                        <button ng-click="saveData(userName, patientData)" style="" ng-disabled="selectedPatient.write == 'false'"
                                 class="btn btn-default"><i class="fa fa-floppy-o" style="margin-right: 5px"
                                                            aria-hidden="true"></i>Save data
                         </button>
@@ -192,7 +192,7 @@
 
                             <div class="col-sm-6">
                                 <!--Only can grant if I own it-->
-                                <button ng-click="grantPermission(patientData)" style=""
+                                <button ng-click="grantPermission(patientData.cpr, userName, writePermission, permissionReciever)" style=""
                                         ng-disabled="selectedPatient.granted =='true'" class="btn btn-default"><i
                                         class="fa fa-handshake-o" style="margin-right: 5px" aria-hidden="true"></i>
                                     Grant permission
@@ -221,7 +221,7 @@
                                 <td style="vertical-align: inherit">{{ grant.receiver }}</td>
                                 <td style="vertical-align: inherit"><i style="margin-right: 5px;" ng-class="{'fa fa-pencil': grant.permissionType == 'write', 'fa fa-book': grant.permissionType == 'read'}"></i>{{ grant.permissionType }}</td>
                                 <td>
-                                    <button ng-click="revokePermission(selectedPatient.id, grant.receiver, grant.permissionType)" style=""
+                                    <button ng-click="revokePermission(selectedPatient.id, grant.receiver, grant.permissionType, userName)" style=""
                                             class="btn btn-default"><i class="fa fa-user-times" style="margin-right: 5px"
                                                                        aria-hidden="true"></i>Revoke
                                     </button>
