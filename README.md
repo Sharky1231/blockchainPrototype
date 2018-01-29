@@ -1,7 +1,6 @@
-## Hyperledger Fabric Samples
-
-Please visit the [installation instructions](http://hyperledger-fabric.readthedocs.io/en/latest/samples.html).
-
-## License <a name="license"></a>
-
-Hyperledger Project source code files are made available under the Apache License, Version 2.0 (Apache-2.0), located in the [LICENSE](LICENSE) file. Hyperledger Project documentation files are made available under the Creative Commons Attribution 4.0 International License (CC-BY-4.0), available at http://creativecommons.org/licenses/by/4.0/.
+## Blockchain identity management prototype
+[Firstly all prerequisites must be installed.](http://hyperledger-fabric.readthedocs.io/en/latest/prereqs.html)Next, 
+inside folder /fabcar we must run "npm install" to install all required packages.
+Afterwards, we can start server by running "npm start". Next we need to start docker and 
+when started we can start blockchain network by executing restart.sh file inside fabcar. 
+Website can be accessed on localhost:3000

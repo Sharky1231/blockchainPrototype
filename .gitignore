@@ -1,11 +1,9 @@
 # Emacs backup files
-*~
 *#
 .#*
 # Vim file artifacts
 .*.sw*
 # installed platform-specific binaries
-bin
 .DS_Store
 .project
 
@@ -32,14 +30,8 @@ fabcar/invoke.js
 fabcar/npm-debug.log
 fabcar/query.js
 fabcar/registerUser.js
-first-network/docker-compose-e2e.yaml
 npm-debug.log
 /.idea/
-/fabric-ca
-/first-network
-/scripts
-chaincode/chaincode_example02
-basic-network
 fabcar/web/hfc-key-store
 bc-command.txt
 fabcar/web/testResults
